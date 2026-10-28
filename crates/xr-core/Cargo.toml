@@ -1,0 +1,25 @@
+[package]
+name = "xr-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Josh Archer"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Josh-Archer/DeskQuest"
+
+description = "Reusable OpenXR sessions, composition layers, passthrough, and spatial placement"
+[dependencies]
+xr-video = { path = "../xr-video", version = "0.1.0" }
+ash = "0.38"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+parking_lot = "0.12"
+libc = "0.2"
+[target.'cfg(not(target_os = "android"))'.dependencies]
+openxr = { version = "0.22", default-features = true }
+[target.'cfg(target_os = "android")'.dependencies]
+# The reusable crate owns the static loader; consumers need no separately packaged .so.
+openxr = { version = "0.22", default-features = false, features = ["static"] }
+ndk = { version = "0.9", features = ["nativewindow", "api-level-30"] }
+ndk-context = "0.1"
