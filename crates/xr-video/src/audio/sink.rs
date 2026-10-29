@@ -89,6 +89,12 @@ pub trait AudioSink {
     /// Current hardware output latency estimate in frames.
     fn latency_frames(&self) -> Result<u32, AudioSinkError>;
 
+    /// Frames written but not yet played, if the sink can tell. Playout uses it to keep a
+    /// steady cushion against network jitter.
+    fn queued_frames(&self) -> Option<u32> {
+        None
+    }
+
     /// Whether the audio sink is currently active and playing.
     fn is_playing(&self) -> bool;
 
@@ -104,6 +110,7 @@ pub struct MockAudioSink {
     written_samples: Vec<f32>,
     total_samples_written: usize,
     simulated_latency_frames: u32,
+    simulated_queued_frames: Option<u32>,
     pub should_fail: bool,
 }
 
@@ -117,6 +124,7 @@ impl MockAudioSink {
             written_samples: Vec::new(),
             total_samples_written: 0,
             simulated_latency_frames: 120, // 2.5ms simulated latency @ 48kHz
+            simulated_queued_frames: None,
             should_fail: false,
         }
     }
@@ -139,6 +147,11 @@ impl MockAudioSink {
     /// Overrides simulated output latency in frames.
     pub fn set_simulated_latency_frames(&mut self, frames: u32) {
         self.simulated_latency_frames = frames;
+    }
+
+    /// Sets what [`AudioSink::queued_frames`] reports (`None`, the default, reports nothing).
+    pub fn set_simulated_queued_frames(&mut self, frames: Option<u32>) {
+        self.simulated_queued_frames = frames;
     }
 }
 
@@ -195,12 +208,61 @@ impl AudioSink for MockAudioSink {
         Ok(self.simulated_latency_frames)
     }
 
+    fn queued_frames(&self) -> Option<u32> {
+        self.simulated_queued_frames
+    }
+
     fn is_playing(&self) -> bool {
         self.is_playing
     }
 
     fn config(&self) -> &AudioSinkConfig {
         &self.config
+    }
+}
+
+/// How long a stream may hold queued audio without playing any before its buffer size is
+/// lowered to what is queued.
+pub const START_STALL: std::time::Duration = std::time::Duration::from_millis(30);
+
+/// Chooses an output stream's buffer size (the most it holds, in frames).
+///
+/// AAudio streams that run on the legacy AudioTrack path only start, and restart after an
+/// underrun, once the buffer is filled to its buffer size, while a writer that keeps a modest
+/// cushion never fills a large one. So: while the stream plays, run at the full capacity (room
+/// to absorb bursts); when it has held audio without playing for [`START_STALL`], drop to what
+/// is queued so it starts.
+#[derive(Debug, Default)]
+pub struct BufferSizer {
+    last_read: Option<i64>,
+    last_progress: Option<std::time::Instant>,
+}
+
+impl BufferSizer {
+    /// The buffer size to switch to, if it should change. `read` is the stream's frames-read
+    /// counter, `queued` the frames waiting to play, `size` and `capacity` the current buffer
+    /// size and capacity.
+    pub fn update(
+        &mut self,
+        now: std::time::Instant,
+        read: i64,
+        queued: u32,
+        size: u32,
+        capacity: u32,
+    ) -> Option<u32> {
+        if self.last_read != Some(read) {
+            let first = self.last_read.is_none();
+            self.last_read = Some(read);
+            self.last_progress = Some(now);
+            // Playing (or just opened): give it the full capacity once it has played.
+            return (!first && size < capacity).then_some(capacity);
+        }
+        let since = now.saturating_duration_since(self.last_progress.unwrap_or(now));
+        if queued > 0 && since >= START_STALL && size > queued {
+            self.last_progress = Some(now);
+            return Some(queued.max(1));
+        }
+        None
     }
 }
 
@@ -239,6 +301,7 @@ pub struct AAudioSink {
     config: AudioSinkConfig,
     stream: Option<ndk::audio::AudioStream>,
     is_playing: bool,
+    sizer: BufferSizer,
 }
 
 #[cfg(target_os = "android")]
@@ -249,6 +312,7 @@ impl AAudioSink {
             config: AudioSinkConfig::default(),
             stream: None,
             is_playing: false,
+            sizer: BufferSizer::default(),
         }
     }
 }
@@ -305,6 +369,7 @@ impl AudioSink for AAudioSink {
                     .format(AudioFormat::PCM_Float)
                     .sample_rate(config.sample_rate as i32)
                     .channel_count(config.channels as i32)
+                    .buffer_capacity_in_frames(config.buffer_capacity_frames as i32)
                     .usage(AudioUsage::Game)
                     .content_type(AudioContentType::Music);
 
@@ -313,6 +378,18 @@ impl AudioSink for AAudioSink {
                     .map_err(|e| AudioSinkError::Open(format!("Shared AAudio open failed: {e}")))?
             }
         };
+
+        // The buffer size starts small, so the stream starts as soon as a little audio is
+        // queued; `BufferSizer` raises it to the capacity once it plays.
+        tracing::info!(
+            capacity = stream.buffer_capacity_in_frames(),
+            buffer_size = stream.buffer_size_in_frames(),
+            burst = stream.frames_per_burst(),
+            rate = stream.sample_rate(),
+            sharing = ?stream.sharing_mode(),
+            "AAudio output stream open"
+        );
+        self.sizer = BufferSizer::default();
 
         self.stream = Some(stream);
         self.config = config;
@@ -353,6 +430,19 @@ impl AudioSink for AAudioSink {
         if !self.is_playing {
             return Err(AudioSinkError::NotReady);
         }
+        let read = stream.frames_read();
+        let queued = (stream.frames_written() - read).clamp(0, i64::from(u32::MAX)) as u32;
+        if let Some(size) = self.sizer.update(
+            std::time::Instant::now(),
+            read,
+            queued,
+            stream.buffer_size_in_frames().max(0) as u32,
+            stream.buffer_capacity_in_frames().max(0) as u32,
+        ) {
+            if let Err(e) = stream.set_buffer_size_in_frames(size as i32) {
+                tracing::debug!("AAudio setBufferSizeInFrames({size}) failed: {e}");
+            }
+        }
 
         let channels = self.config.channels as usize;
         if channels == 0 || samples.is_empty() {
@@ -374,6 +464,12 @@ impl AudioSink for AAudioSink {
         let stream = self.stream.as_ref().ok_or(AudioSinkError::NotReady)?;
         let buffer_size = stream.buffer_size_in_frames();
         Ok(buffer_size.max(0) as u32)
+    }
+
+    fn queued_frames(&self) -> Option<u32> {
+        let stream = self.stream.as_ref()?;
+        let queued = stream.frames_written() - stream.frames_read();
+        Some(queued.clamp(0, i64::from(u32::MAX)) as u32)
     }
 
     fn is_playing(&self) -> bool {
@@ -445,5 +541,55 @@ mod tests {
         sink.start().unwrap();
         assert!(sink.is_playing());
         sink.stop().unwrap();
+    }
+
+    #[test]
+    fn buffer_grows_to_capacity_once_the_stream_plays() {
+        let t0 = std::time::Instant::now();
+        let mut sizer = BufferSizer::default();
+        assert_eq!(sizer.update(t0, 0, 384, 384, 9600), None, "just opened");
+        assert_eq!(
+            sizer.update(
+                t0 + std::time::Duration::from_millis(5),
+                192,
+                1920,
+                384,
+                9600
+            ),
+            Some(9600)
+        );
+        assert_eq!(
+            sizer.update(
+                t0 + std::time::Duration::from_millis(10),
+                384,
+                1920,
+                9600,
+                9600
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn a_stream_holding_audio_without_playing_drops_to_what_is_queued() {
+        let t0 = std::time::Instant::now();
+        let mut sizer = BufferSizer::default();
+        sizer.update(t0, 1000, 0, 9600, 9600);
+        // Underran and refilled with 40 ms, but not playing: within the grace period, wait.
+        let t = t0 + START_STALL / 2;
+        assert_eq!(sizer.update(t, 1000, 1920, 9600, 9600), None);
+        let t = t0 + START_STALL;
+        assert_eq!(sizer.update(t, 1000, 2400, 9600, 9600), Some(2400));
+        // Then it plays and gets the capacity back.
+        let t = t + std::time::Duration::from_millis(5);
+        assert_eq!(sizer.update(t, 1192, 2208, 2400, 9600), Some(9600));
+    }
+
+    #[test]
+    fn an_idle_empty_stream_is_left_alone() {
+        let t0 = std::time::Instant::now();
+        let mut sizer = BufferSizer::default();
+        sizer.update(t0, 500, 0, 9600, 9600);
+        assert_eq!(sizer.update(t0 + START_STALL * 4, 500, 0, 9600, 9600), None);
     }
 }
