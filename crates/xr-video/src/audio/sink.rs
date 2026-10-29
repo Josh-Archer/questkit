@@ -340,6 +340,9 @@ pub struct AAudioSink {
     stream: Option<ndk::audio::AudioStream>,
     is_playing: bool,
     sizer: BufferSizer,
+    /// Loudest sample written since the last level log, and when that was.
+    peak: f32,
+    peak_logged: Option<std::time::Instant>,
 }
 
 #[cfg(target_os = "android")]
@@ -351,6 +354,8 @@ impl AAudioSink {
             stream: None,
             is_playing: false,
             sizer: BufferSizer::default(),
+            peak: 0.0,
+            peak_logged: None,
         }
     }
 }
@@ -464,6 +469,19 @@ impl AudioSink for AAudioSink {
     }
 
     fn write_samples(&mut self, samples: &[f32]) -> Result<usize, AudioSinkError> {
+        if self.stream.is_none() {
+            return Err(AudioSinkError::NotReady);
+        }
+        self.peak = samples.iter().fold(self.peak, |p, s| p.max(s.abs()));
+        let now = std::time::Instant::now();
+        if self
+            .peak_logged
+            .is_none_or(|at| now.duration_since(at) >= std::time::Duration::from_secs(10))
+        {
+            tracing::info!(peak = self.peak, "AAudio output level");
+            self.peak = 0.0;
+            self.peak_logged = Some(now);
+        }
         let stream = self.stream.as_ref().ok_or(AudioSinkError::NotReady)?;
         if !self.is_playing {
             return Err(AudioSinkError::NotReady);
