@@ -102,6 +102,44 @@ pub trait AudioSink {
     fn config(&self) -> &AudioSinkConfig;
 }
 
+impl<S: ?Sized + AudioSink> AudioSink for Box<S> {
+    fn open(&mut self, config: AudioSinkConfig) -> Result<(), AudioSinkError> {
+        (**self).open(config)
+    }
+
+    fn start(&mut self) -> Result<(), AudioSinkError> {
+        (**self).start()
+    }
+
+    fn pause(&mut self) -> Result<(), AudioSinkError> {
+        (**self).pause()
+    }
+
+    fn stop(&mut self) -> Result<(), AudioSinkError> {
+        (**self).stop()
+    }
+
+    fn write_samples(&mut self, samples: &[f32]) -> Result<usize, AudioSinkError> {
+        (**self).write_samples(samples)
+    }
+
+    fn latency_frames(&self) -> Result<u32, AudioSinkError> {
+        (**self).latency_frames()
+    }
+
+    fn queued_frames(&self) -> Option<u32> {
+        (**self).queued_frames()
+    }
+
+    fn is_playing(&self) -> bool {
+        (**self).is_playing()
+    }
+
+    fn config(&self) -> &AudioSinkConfig {
+        (**self).config()
+    }
+}
+
 /// Software mock audio sink for unit testing, CI pipelines, and desktop host environments.
 pub struct MockAudioSink {
     config: AudioSinkConfig,
@@ -540,6 +578,20 @@ mod tests {
         sink.open(AudioSinkConfig::default()).unwrap();
         sink.start().unwrap();
         assert!(sink.is_playing());
+        sink.stop().unwrap();
+    }
+
+    #[test]
+    fn test_boxed_audio_sink_delegation() {
+        let mut sink: Box<dyn AudioSink> = Box::new(MockAudioSink::new(AudioSinkConfig::default()));
+        sink.open(AudioSinkConfig::default()).unwrap();
+        sink.start().unwrap();
+        assert!(sink.is_playing());
+        assert_eq!(sink.latency_frames().unwrap(), 120);
+        let samples = vec![0.5f32, -0.5f32];
+        assert_eq!(sink.write_samples(&samples).unwrap(), 2);
+        sink.pause().unwrap();
+        assert!(!sink.is_playing());
         sink.stop().unwrap();
     }
 
