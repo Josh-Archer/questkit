@@ -29,6 +29,39 @@ eye argument for reversed sources. Empty, overflowing and indivisible packed
 frames are rejected. The app chooses the corresponding composition layer and
 per-eye visibility; DeskQuest's existing mono presentation is unchanged.
 
+`format::detect_format` performs pure-Rust stereo/projection detection without
+opening files or initializing a decoder. It accepts an optional Jellyfin
+`Video3DFormat` string, filename/local path, and normalized `ContainerHints` from
+the application's metadata probe. Stereo and projection resolve independently:
+Jellyfin first, filename second, container hints third, then mono/flat defaults.
+The result records the source of each decision. Unknown Jellyfin values fall
+through; Jellyfin's stereo field does not suppress projection hints.
+
+Filename tags are case-insensitive, delimited alphanumeric tokens in the basename
+without its extension. Explicit HSBS/FSBS/HOU/FOU/HTAB/FTAB tags take precedence
+over SBS/OU/TAB and underscore-prefixed LR/TB (which assume half packing). A lone
+3D tag reports `Unspecified3d`, requiring a later user choice. MVC and MVHEVC tags
+are also recognized. Projection tags are 180, 360, and fisheye; fisheye wins over
+angular tags. Equal-specificity conflicts use the first tag. Directory names,
+1080p, and x360 are not tags. Container adapters should supply only known metadata
+hints, not guess multiview support from a generic HEVC codec or frame dimensions.
+
+```rust
+use xr_video::format::{detect_format, ContainerHints, Projection, StereoFormat};
+
+let format = detect_format(
+    Some("FullSideBySide"),
+    Some("Vacation_180_LR.mp4"),
+    ContainerHints::default(),
+);
+assert_eq!(format.stereo, StereoFormat::FullSideBySide);
+assert_eq!(format.projection, Projection::Equirectangular180);
+```
+
+Detection preserves half/full packing and MVC/MV-HEVC distinctions separately
+from `StereoLayout`'s texture regions. It does not enable multiview decoding,
+projection rendering, or Jellyfin network/playback integration.
+
 Audio traits consume decoded/encoded samples without knowledge of packet formats.
 The app owns timing/packet reception and feeds `OpusAudioDecoder`, `AvSynchronizer`
 and an `AudioSink`. Mock video/audio implementations support host tests.

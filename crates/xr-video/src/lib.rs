@@ -3,6 +3,7 @@ pub mod audio;
 pub mod config;
 pub mod decoder;
 pub mod error;
+pub mod format;
 pub mod graphics;
 pub use config::VideoCodec;
 pub use decoder::{DecodedFrame, DecoderStats, HardwareVideoDecoder};
