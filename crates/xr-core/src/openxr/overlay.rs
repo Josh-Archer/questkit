@@ -5,6 +5,7 @@
 //! or cylinder layers, so a user can see where a controller or hand points and which screen it
 //! is about to grab.
 
+use crate::spatial::ray::{ray_intersects_quad, Ray};
 use crate::spatial::{Quat, ScreenPose, Vec3};
 
 /// Ray texture size (width x height pixels). The ray runs along the texture's height.
@@ -47,6 +48,12 @@ pub const EDGE_GAP_FRAC: f32 = 0.04;
 
 /// Resize handle texture: an arc around the top-left corner, turned for the others.
 pub const CORNER_TEXTURE: (u32, u32) = (128, 128);
+/// Add-screen plus, drawn just outside the focused screen on the dominant-hand side.
+pub const PLUS_TEXTURE: (u32, u32) = (128, 128);
+/// Plus diameter as a fraction of the screen's width.
+pub const PLUS_SIZE_FRAC: f32 = 0.08;
+/// Gap between the screen edge and the plus, as a fraction of the screen's width.
+pub const PLUS_GAP_FRAC: f32 = 0.05;
 /// Gap between a rounded corner and its arc, and the arc's thickness, as fractions of the
 /// screen's width.
 pub const ARC_GAP_FRAC: f32 = 0.022;
@@ -187,6 +194,8 @@ pub struct WindowChrome {
     pub edge: Option<HandleVisual>,
     /// Arc around the corner being pointed at or dragged.
     pub corner: Option<HandleVisual>,
+    /// Plus just outside the focused screen; hidden at the monitor limit.
+    pub plus: Option<HandleVisual>,
 }
 
 /// What to draw over the scene this frame.
@@ -445,6 +454,66 @@ pub fn window_chrome(
     chrome
 }
 
+/// Plus button just outside `screen`, on the side toward the user's dominant hand.
+pub fn add_screen_plus(
+    screen: &crate::spatial::ScreenTransform,
+    dominant_right: bool,
+    active: bool,
+) -> HandleVisual {
+    let (w, _) = screen.size_m();
+    let size = PLUS_SIZE_FRAC * w;
+    let gap = PLUS_GAP_FRAC * w + size * 0.5;
+    let u = if dominant_right {
+        1.0 + gap / w
+    } else {
+        -gap / w
+    };
+    HandleVisual {
+        pose: on_surface(screen.surface_pose(u, 0.5), 0.0),
+        size: (size, size),
+        active,
+    }
+}
+
+/// True when `ray` hits the add-screen plus on `screen`.
+pub fn add_screen_plus_hit(
+    screen: &crate::spatial::ScreenTransform,
+    ray: &Ray,
+    dominant_right: bool,
+) -> Option<f32> {
+    let visual = add_screen_plus(screen, dominant_right, false);
+    ray_intersects_quad(ray, &visual.pose, visual.size).map(|hit| hit.distance)
+}
+
+/// A circular add-screen control with a plus in the middle.
+pub fn plus_rgba() -> Vec<u8> {
+    let (w, h) = PLUS_TEXTURE;
+    let mut px = vec![0u8; (w * h * 4) as usize];
+    let (cx, cy) = (w as f32 / 2.0, h as f32 / 2.0);
+    let r = w as f32 * 0.42;
+    let arm = r * 0.52;
+    let thick = r * 0.11;
+    for y in 0..h {
+        for x in 0..w {
+            let dx = x as f32 + 0.5 - cx;
+            let dy = y as f32 + 0.5 - cy;
+            let d = (dx * dx + dy * dy).sqrt();
+            let circle = 1.0 - smoothstep(r - 1.5, r + 0.5, d);
+            if circle <= 0.0 {
+                continue;
+            }
+            let in_plus =
+                (dx.abs() <= arm && dy.abs() <= thick) || (dy.abs() <= arm && dx.abs() <= thick);
+            if in_plus {
+                put(&mut px, w, x, y, [255, 255, 255], circle);
+            } else {
+                put(&mut px, w, x, y, [36, 48, 68], circle * 0.92);
+            }
+        }
+    }
+    px
+}
+
 /// Rotation whose local X, Y, Z axes map to the given orthonormal world axes.
 pub fn quat_from_basis(x: Vec3, y: Vec3, z: Vec3) -> Quat {
     // Standard rotation-matrix to quaternion; columns are x, y, z.
@@ -545,6 +614,7 @@ impl Default for OverlayScene<'_> {
             bar: None,
             edge: None,
             corner: None,
+            plus: None,
         };
         Self {
             pointers: &[],
@@ -714,6 +784,57 @@ mod tests {
     }
 
     #[test]
+    fn add_screen_plus_sits_outside_the_dominant_hand_side_and_is_reachable() {
+        use crate::config::DisplayMode;
+        use crate::spatial::{Ray, ScreenTransform};
+        for mode in [DisplayMode::CurvedCylinder, DisplayMode::FlatQuad] {
+            let screen = ScreenTransform {
+                display_mode: mode,
+                ..ScreenTransform::default()
+            };
+            let (w, _) = screen.size_m();
+            let local = |p: Vec3| {
+                screen
+                    .orientation
+                    .conjugate()
+                    .rotate_vec(p - screen.position)
+            };
+            let viewer = screen.position + Vec3::new(0.0, 0.0, screen.distance);
+            let right = add_screen_plus(&screen, true, false);
+            let left = add_screen_plus(&screen, false, false);
+            let right_edge = local(screen.surface_pose(1.0, 0.5).position);
+            let left_edge = local(screen.surface_pose(0.0, 0.5).position);
+            assert!(
+                local(right.pose.position).x > right_edge.x,
+                "{mode:?}: plus on the right sits outside"
+            );
+            assert!(
+                local(left.pose.position).x < left_edge.x,
+                "{mode:?}: plus on the left sits outside"
+            );
+            assert!((right.size.0 - PLUS_SIZE_FRAC * w).abs() < 1e-5);
+            assert!(add_screen_plus_hit(
+                &screen,
+                &Ray::new(viewer, right.pose.position - viewer),
+                true
+            )
+            .is_some());
+            assert!(add_screen_plus_hit(
+                &screen,
+                &Ray::new(viewer, left.pose.position - viewer),
+                false
+            )
+            .is_some());
+            assert!(add_screen_plus_hit(
+                &screen,
+                &Ray::new(viewer, screen.position - viewer),
+                true
+            )
+            .is_none());
+        }
+    }
+
+    #[test]
     fn textures_have_the_declared_sizes_and_shapes() {
         let alpha = |px: &[u8], w: u32, x: u32, y: u32| px[((y * w + x) * 4 + 3) as usize];
         assert_eq!(
@@ -777,6 +898,14 @@ mod tests {
             0,
             "nothing on the screen side"
         );
+
+        let (pw, ph) = PLUS_TEXTURE;
+        let plus = plus_rgba();
+        assert!(
+            alpha(&plus, pw, pw / 2, ph / 2) > 200,
+            "plus centre is the cross"
+        );
+        assert_eq!(alpha(&plus, pw, 0, 0), 0, "plus corners are clear");
     }
 
     #[test]
@@ -801,8 +930,14 @@ mod tests {
             [0, 0, 0],
             "the edge strip is not a block"
         );
+        let plus = plus_rgba();
+        assert_eq!(
+            rgb(&plus, PLUS_TEXTURE.0, 0, 0),
+            [0, 0, 0],
+            "plus corners are clear"
+        );
         // A colour never exceeds its alpha.
-        for px in [cursor, corner, edge, bar_rgba(0.6), ray_rgba()].iter() {
+        for px in [cursor, corner, edge, bar_rgba(0.6), ray_rgba(), plus].iter() {
             for p in px.chunks(4) {
                 assert!(p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3], "{p:?}");
             }

@@ -140,6 +140,7 @@ struct OverlaySwapchains {
     bar: [OverlayTexture; 2],
     edge: [OverlayTexture; 2],
     corner: [OverlayTexture; 2],
+    plus: OverlayTexture,
 }
 
 /// The swapchain and placement of the screen for a video stream other than the primary one.
@@ -930,6 +931,7 @@ impl OpenXrContext {
                     tex(CORNER_TEXTURE, corner_rgba(HANDLE_IDLE_ALPHA))?,
                     tex(CORNER_TEXTURE, corner_rgba(HANDLE_ACTIVE_ALPHA))?,
                 ],
+                plus: tex(PLUS_TEXTURE, plus_rgba())?,
             })
         })();
         match overlay {
@@ -1492,15 +1494,15 @@ impl OpenXrContext {
             // compositor keeps showing a swapchain's last released image), then build layers.
             use crate::openxr::overlay::{
                 cursor_pose, ray_quad_pose, BAR_TEXTURE, CORNER_TEXTURE, CURSOR_SIZE_M,
-                CURSOR_TEXTURE, EDGE_TEXTURE, MASK_TEXTURE, RAY_TEXTURE, RAY_WIDTH_M,
+                CURSOR_TEXTURE, EDGE_TEXTURE, MASK_TEXTURE, PLUS_TEXTURE, RAY_TEXTURE, RAY_WIDTH_M,
             };
             let chrome = [
                 (overlay.chrome.bar, BAR_TEXTURE),
                 (overlay.chrome.edge, EDGE_TEXTURE),
                 (overlay.chrome.corner, CORNER_TEXTURE),
             ];
-            let (mut rays_ok, mut cursor_ok, mut mask_ok, mut frame_ok) =
-                (false, false, false, false);
+            let (mut rays_ok, mut cursor_ok, mut mask_ok, mut frame_ok, mut plus_ok) =
+                (false, false, false, false, false);
             let mut chrome_ok = [false; 3];
             let mut connect_ok = false;
             let connect_index = overlay.billboard.as_ref().map(|p| p.texture_index);
@@ -1525,6 +1527,9 @@ impl OpenXrContext {
                     if let Some(h) = handle {
                         *ok = look[usize::from(h.active)].ensure(vulkan_context);
                     }
+                }
+                if overlay.chrome.plus.is_some() {
+                    plus_ok = o.plus.ensure(vulkan_context);
                 }
             }
             let eye = self
@@ -1562,6 +1567,15 @@ impl OpenXrContext {
                             h.size,
                         ));
                     }
+                }
+                if let (true, Some(plus)) = (plus_ok, overlay.chrome.plus) {
+                    pointer_layers.push(crate::openxr::layers::build_overlay_quad(
+                        space,
+                        o.plus.swapchain(),
+                        PLUS_TEXTURE,
+                        openxr::Posef::from(plus.pose),
+                        plus.size,
+                    ));
                 }
                 if rays_ok {
                     for p in overlay.pointers {
