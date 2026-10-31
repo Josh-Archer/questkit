@@ -16,7 +16,7 @@ permissions:
 jobs:
   release:
     name: Publish unreleased crates
-    runs-on: home-gh-runner-questkit
+    runs-on: uecb-shared
     timeout-minutes: 45
     environment: crates-io
     permissions:
@@ -44,7 +44,7 @@ jobs:
 
   release-pr:
     name: Open or update the release PR
-    runs-on: home-gh-runner-questkit
+    runs-on: uecb-shared
     timeout-minutes: 30
     permissions:
       contents: write

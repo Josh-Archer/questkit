@@ -17,7 +17,7 @@ permissions:
 jobs:
   test:
     name: Build, Lint & Test
-    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'home-gh-runner-questkit' }}
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -63,7 +63,7 @@ jobs:
 
   msrv:
     name: MSRV
-    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'home-gh-runner-questkit' }}
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

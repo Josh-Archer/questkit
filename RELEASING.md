@@ -33,6 +33,6 @@ version in its `Cargo.toml`. Check the name is free on crates.io first.
 - `RELEASE_PLZ_TOKEN` (optional but recommended): a fine-grained PAT or GitHub App token with
   contents and pull-requests write. Pull requests opened with the default `GITHUB_TOKEN` do not
   run CI, so without it the release PR has no checks.
-- The workflows run on the `home-gh-runner-questkit` ARC runner scale set.
+- The workflows run on the shared `uecb-shared` runner pool.
 - Optional: install `cargo-semver-checks` on the runner and set `semver_check = true` in
   `release-plz.toml` to fail a release that breaks a crate's public API without a major bump.
