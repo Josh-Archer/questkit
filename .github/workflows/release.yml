@@ -12,7 +12,7 @@ permissions:
 jobs:
   publish:
     name: Publish to crates.io
-    runs-on: home-gh-runner-questkit
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
     timeout-minutes: 45
     environment: crates-io
     steps:
