@@ -1,12 +1,17 @@
 [package]
 name = "xr-video"
-version = "0.1.0"
-edition = "2021"
-authors = ["Josh Archer"]
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/Josh-Archer/DeskQuest"
-
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
 description = "Reusable Quest hardware video decoding, Vulkan resources, and audio output"
+keywords = ["quest","xr","video","mediacodec","vulkan"]
+categories = ["multimedia::video","game-development"]
+
 [dependencies]
 ash = "0.38"
 serde = { version = "1.0", features = ["derive"] }

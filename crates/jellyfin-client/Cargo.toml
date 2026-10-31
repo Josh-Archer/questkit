@@ -1,0 +1,29 @@
+[package]
+name = "jellyfin-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Headless async Jellyfin HTTP client: Quick Connect, library browsing, PlaybackInfo and device profiles, session reporting"
+keywords = ["jellyfin","media","client","quickconnect","api"]
+categories = ["api-bindings","multimedia"]
+
+[dependencies]
+parking_lot.workspace = true
+serde.workspace = true
+serde_json = "1.0"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+reqwest.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+serde_json = "1.0"
+tokio.workspace = true
+url.workspace = true
+wiremock.workspace = true

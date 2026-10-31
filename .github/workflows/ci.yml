@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/runner-selector.yml
+
+  test:
+    name: Build, Lint & Test
+    needs: runner
+    runs-on: ${{ needs.runner.outputs.runner-label }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install system dependencies
+        # audiopus_sys builds Opus from source.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          shared-key: "questkit-ci"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Verify code formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy linter
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Run workspace tests
+        run: cargo test --workspace --locked
+
+      - name: Verify independent XR consumer and Android manifest template
+        run: |
+          bash scripts/ci/check-xr-reuse.sh
+          python3 crates/xr-core/android/test_manifest.py
+
+      - name: Verify the crates package cleanly for crates.io
+        # Builds each packaged crate in isolation, so a file missing from the published
+        # tarball fails here and not at release time.
+        run: cargo package --workspace --locked
+
+  msrv:
+    name: MSRV
+    needs: runner
+    runs-on: ${{ needs.runner.outputs.runner-label }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+      - name: Read rust-version
+        id: msrv
+        run: echo "version=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          shared-key: "questkit-msrv"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo check --workspace --all-targets

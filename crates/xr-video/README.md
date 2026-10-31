@@ -7,8 +7,8 @@ buffering and application playback orchestration remain with the application.
 
 ```toml
 [dependencies]
-xr-video = { path = "../DeskQuest/crates/xr-video" }
-# Or: xr-video = { git = "https://github.com/Josh-Archer/DeskQuest", rev = "<commit>" }
+xr-video = "0.1"
+
 ```
 
 Use `decoder::create_decoder` with `config::DecoderConfig`, dimensions and the

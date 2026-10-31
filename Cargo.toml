@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/xr-video",
+    "crates/xr-core",
+    "crates/jellyfin-client",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+authors = ["Josh Archer <jarcher1200@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Josh-Archer/questkit"
+homepage = "https://github.com/Josh-Archer/questkit"
+
+[workspace.dependencies]
+parking_lot = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = { version = "1.43", features = ["full"] }
+tracing = "0.1"
+url = { version = "2.5", features = ["serde"] }
+wiremock = "0.6"

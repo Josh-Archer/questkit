@@ -1,0 +1,36 @@
+{
+  "PlaySessionId": "play-session-quest-3d-888999",
+  "MediaSources": [
+    {
+      "Id": "source-avatar-hevc-1080p",
+      "Container": "mkv",
+      "Path": "/Volume1/media/3D/Avatar (2009).3D.HSBS.mkv",
+      "SupportsDirectPlay": true,
+      "SupportsDirectStream": true,
+      "SupportsTranscoding": false,
+      "DirectStreamUrl": "/Videos/avatar-3d-hsbs-id/stream?static=true",
+      "Bitrate": 25000000,
+      "MediaStreams": [
+        {
+          "Codec": "hevc",
+          "Type": "Video",
+          "Index": 0,
+          "Width": 1920,
+          "Height": 1080,
+          "AspectRatio": "16:9",
+          "BitRate": 25000000,
+          "RealFrameRate": 23.976,
+          "StereoMode": "1",
+          "IsDefault": true
+        },
+        {
+          "Codec": "aac",
+          "Type": "Audio",
+          "Index": 1,
+          "BitRate": 384000,
+          "IsDefault": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,12 +1,18 @@
 [package]
 name = "xr-core"
-version = "0.1.0"
-edition = "2021"
-authors = ["Josh Archer"]
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/Josh-Archer/DeskQuest"
-
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
 description = "Reusable OpenXR sessions, composition layers, passthrough, and spatial placement"
+keywords = ["quest","openxr","vr","xr","passthrough"]
+categories = ["game-development","graphics"]
+exclude = ["android/test_manifest.py"]
+
 [dependencies]
 xr-video = { path = "../xr-video", version = "0.1.0" }
 ash = "0.38"

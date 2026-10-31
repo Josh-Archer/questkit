@@ -8,10 +8,8 @@ this runtime. Desktop/headless callers can use `OpenXrContext::new_simulated`.
 
 ```toml
 [dependencies]
-xr-core = { path = "../DeskQuest/crates/xr-core" }
-xr-video = { path = "../DeskQuest/crates/xr-video" }
-# Or use git = "https://github.com/Josh-Archer/DeskQuest", rev = "<commit>"
-# for either package (Cargo locates the package in the repository workspace).
+xr-core = "0.1"
+xr-video = "0.1"
 ```
 
 Create an `XrConfig` with your application name and projection settings. On Android,
@@ -48,7 +46,7 @@ export APP_LABEL='Video Player'
 export APP_RES_DIR="$APP_DIR/android/res"       # mipmap-nodpi/ic_launcher.png
 export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
 export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
-bash ../DeskQuest/crates/xr-core/android/build.sh --release
+bash "$(dirname "$(cargo metadata --format-version 1 | python3 -c 'import json,sys;print(next(p["manifest_path"] for p in json.load(sys.stdin)["packages"] if p["name"]=="xr-core"))')")/android/build.sh" --release
 ```
 
 The default manifest uses `android.app.NativeActivity`; export the appropriate
