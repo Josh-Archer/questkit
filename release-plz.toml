@@ -1,0 +1,16 @@
+# release-plz: https://release-plz.dev/docs/config
+#
+# Every publishable member of the workspace is released independently, with its own version,
+# changelog and tag. A new crate under crates/ is picked up automatically: nothing here lists
+# crates by name. Set `publish = false` in a crate's own [package] to keep it out.
+
+[workspace]
+publish = true
+git_tag_enable = true
+git_release_enable = true
+# One tag and GitHub release per crate, for example `xr-core-v0.2.0`.
+git_tag_name = "{{ package }}-v{{ version }}"
+git_release_name = "{{ package }} v{{ version }}"
+changelog_update = true
+# cargo-semver-checks is not installed on the runner yet; turn this on once it is.
+semver_check = false

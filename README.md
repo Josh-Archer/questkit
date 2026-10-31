@@ -21,10 +21,9 @@ jellyfin-client = "0.1"
 
 ## Versioning and releases
 
-All crates share one version (lockstep) and follow [SemVer](https://semver.org); while the
-version is `0.x`, a minor bump may break the API. See [RELEASING.md](RELEASING.md) and
-[CHANGELOG.md](CHANGELOG.md). The minimum supported Rust version is in `Cargo.toml`
-(`rust-version`) and checked in CI.
+Each crate is versioned and released independently and follows [SemVer](https://semver.org); while a crate's
+version is `0.x`, a minor bump may break the API. See [RELEASING.md](RELEASING.md) and each crate's `CHANGELOG.md`.
+The minimum supported Rust version is in `Cargo.toml` (`rust-version`) and checked in CI.
 
 ## Development
 
