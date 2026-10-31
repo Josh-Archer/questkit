@@ -15,16 +15,9 @@ permissions:
   contents: read
 
 jobs:
-  runner:
-    permissions:
-      actions: read
-      contents: read
-    uses: ./.github/workflows/runner-selector.yml
-
   test:
     name: Build, Lint & Test
-    needs: runner
-    runs-on: ${{ needs.runner.outputs.runner-label }}
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'home-gh-runner-questkit' }}
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -67,8 +60,7 @@ jobs:
 
   msrv:
     name: MSRV
-    needs: runner
-    runs-on: ${{ needs.runner.outputs.runner-label }}
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'home-gh-runner-questkit' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

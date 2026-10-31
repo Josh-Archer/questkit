@@ -20,6 +20,4 @@ so it can be re-run), and creates a GitHub release.
   environment. Create the token at <https://crates.io/settings/tokens>.
 - After the first publish, switch each crate to [trusted publishing](https://crates.io/docs/trusted-publishing)
   and drop the long-lived token.
-- Repository variables `USE_SELF_HOSTED`, `SELF_HOSTED_RUNNER_LABEL` and `TRUSTED_RUNNER_LABEL`
-  choose the runner (see `.github/workflows/runner-selector.yml`); pull requests from forks
-  always use GitHub-hosted runners.
+- CI and releases run on the `home-gh-runner-questkit` ARC runner scale set (see `.github/workflows`); pull requests from forks use GitHub-hosted runners so untrusted code never reaches the cluster.
