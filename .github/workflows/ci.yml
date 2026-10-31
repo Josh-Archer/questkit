@@ -49,6 +49,9 @@ jobs:
         run: cargo test --workspace --locked
 
       - name: Verify independent XR consumer and Android manifest template
+        env:
+          # Keep Python from writing __pycache__ into the tree: `cargo package` refuses a dirty one.
+          PYTHONDONTWRITEBYTECODE: "1"
         run: |
           bash scripts/ci/check-xr-reuse.sh
           python3 crates/xr-core/android/test_manifest.py
