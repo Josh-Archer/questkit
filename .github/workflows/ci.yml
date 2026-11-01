@@ -94,6 +94,10 @@ jobs:
         with:
           shared-key: "questkit-package"
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Fetch locked dependencies
+        # check-xr-reuse.sh resolves offline; populate the registry for every target
+        # (incl. Android-only crates like ash) since this job no longer follows a build.
+        run: cargo fetch --locked
       - name: Verify independent XR consumer and Android manifest template
         env:
           # Keep Python from writing __pycache__ into the tree: `cargo package` refuses a dirty one.
