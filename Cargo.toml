@@ -9,7 +9,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 authors = ["Josh Archer <jarcher1200@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Josh-Archer/questkit"
@@ -17,7 +17,7 @@ homepage = "https://github.com/Josh-Archer/questkit"
 
 [workspace.dependencies]
 bytes = "1.9"
-parking_lot = "0.12"
+parking_lot = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
