@@ -30,7 +30,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+        # The release-plz action calls the `gh` CLI and `jq`, which the runner image lacks.
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config jq curl ca-certificates
+          if ! command -v gh >/dev/null; then
+            sudo apt-get install -y --no-install-recommends gh || {
+              sudo mkdir -p -m 755 /etc/apt/keyrings
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends gh
+            }
+          fi
+          gh --version
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
@@ -58,7 +72,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+        # The release-plz action calls the `gh` CLI and `jq`, which the runner image lacks.
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config jq curl ca-certificates
+          if ! command -v gh >/dev/null; then
+            sudo apt-get install -y --no-install-recommends gh || {
+              sudo mkdir -p -m 755 /etc/apt/keyrings
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends gh
+            }
+          fi
+          gh --version
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
