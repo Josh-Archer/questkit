@@ -1,0 +1,73 @@
+name: Release
+
+# Releases are driven by conventional commits on main (see RELEASING.md):
+#  - `release-pr` opens and updates one pull request that bumps each changed crate's version,
+#    updates the dependents that need it, and writes the per-crate changelogs.
+#  - `release` publishes every crate whose version is not on crates.io yet, in dependency
+#    order, then tags and creates a GitHub release for each.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish unreleased crates
+    runs-on: uecb-shared
+    timeout-minutes: 45
+    environment: crates-io
+    permissions:
+      contents: write
+    concurrency:
+      group: release-plz-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - name: Run release-plz release
+        uses: release-plz/action@476794ede164c5137bfc3a1dc6ed3675275690f9 # v0.5.99
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release-pr:
+    name: Open or update the release PR
+    runs-on: uecb-shared
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-pr
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - name: Run release-plz release-pr
+        uses: release-plz/action@476794ede164c5137bfc3a1dc6ed3675275690f9 # v0.5.99
+        with:
+          command: release-pr
+        env:
+          # Pull requests opened with the default GITHUB_TOKEN do not trigger CI. Set a
+          # RELEASE_PLZ_TOKEN secret (a fine-grained PAT or GitHub App token with contents and
+          # pull-requests write) so the release PR gets its checks.
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
