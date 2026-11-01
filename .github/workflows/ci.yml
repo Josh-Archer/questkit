@@ -15,39 +15,89 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Build, Lint & Test
+  fmt:
+    name: Format
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Verify code formatting
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
     timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - name: Install system dependencies
         # audiopus_sys builds Opus from source.
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
-
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
-          components: rustfmt, clippy
-
+          components: clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
-          shared-key: "questkit-ci"
+          shared-key: "questkit-clippy"
           save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Verify code formatting
-        run: cargo fmt --all -- --check
-
       - name: Run clippy linter
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+  tests:
+    name: Tests
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install system dependencies
+        # audiopus_sys builds Opus from source.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          shared-key: "questkit-tests"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Run workspace tests
         run: cargo test --workspace --locked
 
+  package:
+    name: XR reuse & package
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install system dependencies
+        # audiopus_sys builds Opus from source.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          shared-key: "questkit-package"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Fetch locked dependencies
+        # check-xr-reuse.sh resolves offline; populate the registry for every target
+        # (incl. Android-only crates like ash) since this job no longer follows a build.
+        run: cargo fetch --locked
       - name: Verify independent XR consumer and Android manifest template
         env:
           # Keep Python from writing __pycache__ into the tree: `cargo package` refuses a dirty one.
@@ -60,6 +110,23 @@ jobs:
         # Builds each packaged crate in isolation, so a file missing from the published
         # tarball fails here and not at release time.
         run: cargo package --workspace --locked
+
+  # Keeps the existing "Build, Lint & Test" check name for branch protection;
+  # passes only when every split job passed.
+  test:
+    name: Build, Lint & Test
+    if: always()
+    needs: [fmt, clippy, tests, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require all split jobs
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for r in $RESULTS; do
+            [ "$r" = success ] || { echo "::error::a required job finished with: $r"; exit 1; }
+          done
 
   msrv:
     name: MSRV
