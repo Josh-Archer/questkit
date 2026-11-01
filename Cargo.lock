@@ -910,6 +910,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "questkit-fec"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,17 @@
+[package]
+name = "questkit-fec"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Reed-Solomon and XOR forward-error correction for lossy packet transports"
+keywords = ["fec", "reed-solomon", "xor", "networking", "udp"]
+categories = ["network-programming"]
+
+[dependencies]
+bytes.workspace = true
+thiserror.workspace = true

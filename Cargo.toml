@@ -4,10 +4,10 @@ members = [
     "crates/xr-video",
     "crates/xr-core",
     "crates/jellyfin-client",
+    "crates/questkit-fec",
 ]
 
 [workspace.package]
-version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 authors = ["Josh Archer <jarcher1200@gmail.com>"]
@@ -16,6 +16,7 @@ repository = "https://github.com/Josh-Archer/questkit"
 homepage = "https://github.com/Josh-Archer/questkit"
 
 [workspace.dependencies]
+bytes = "1.9"
 parking_lot = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }

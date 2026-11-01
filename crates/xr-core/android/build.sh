@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Shared Meta Quest Android APK build and package harness
-# Targets 64-bit ARM (arm64-v8a / aarch64-linux-android) on Meta Horizon OS.
+# Targets 64-bit ARM (arm64-v8a / aarch64-linux-android) on Meta Horizon OS. APP_ABI=x86_64
+# builds for an x86_64 Android emulator instead (DeskQuest's start-up smoke test).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${APP_DIR:?Set APP_DIR to the app crate containing Cargo.toml}"
@@ -17,6 +18,13 @@ APP_RES_DIR="${APP_RES_DIR:-${APP_ANDROID_DIR}/res}"
 APP_JAVA_DIR="${APP_JAVA_DIR:-${APP_ANDROID_DIR}/src}"
 APP_ACTIVITY="${APP_ACTIVITY:-android.app.NativeActivity}"
 APP_CARGO_FEATURES="${APP_CARGO_FEATURES:-}"
+APP_ABI="${APP_ABI:-arm64-v8a}"
+case "${APP_ABI}" in
+    arm64-v8a) RUST_TARGET=aarch64-linux-android ;;
+    x86_64) RUST_TARGET=x86_64-linux-android ;;
+    *) echo "ERROR: APP_ABI must be arm64-v8a or x86_64, not ${APP_ABI}" >&2; exit 1 ;;
+esac
+export APP_ABI
 
 # Detect Android SDK and NDK
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/Android/Sdk}}"
@@ -80,7 +88,7 @@ export CARGO_TARGET_DIR
 # Parse arguments
 BUILD_MODE="debug"
 CARGO_PROFILE_FLAG=""
-TARGET_DIR="${CARGO_TARGET_DIR}/aarch64-linux-android/debug"
+TARGET_DIR="${CARGO_TARGET_DIR}/${RUST_TARGET}/debug"
 INSTALL_ON_DEVICE=false
 RUN_ON_DEVICE=false
 LAUNCH_ACTIVITY="${APP_LAUNCH_ACTIVITY:-${APP_ACTIVITY}}"
@@ -90,7 +98,7 @@ for arg in "$@"; do
         --release)
             BUILD_MODE="release"
             CARGO_PROFILE_FLAG="--release"
-            TARGET_DIR="${CARGO_TARGET_DIR}/aarch64-linux-android/release"
+            TARGET_DIR="${CARGO_TARGET_DIR}/${RUST_TARGET}/release"
             ;;
         --install)
             INSTALL_ON_DEVICE=true
@@ -124,13 +132,14 @@ echo "========================================================"
 
 # cmake-built dependencies (OpenXR loader, Opus) for this target use the NDK toolchain wrapper.
 export CMAKE_TOOLCHAIN_FILE_aarch64_linux_android="${CMAKE_TOOLCHAIN_FILE_aarch64_linux_android:-${SCRIPT_DIR}/ndk-cmake-toolchain.cmake}"
+export CMAKE_TOOLCHAIN_FILE_x86_64_linux_android="${CMAKE_TOOLCHAIN_FILE_x86_64_linux_android:-${SCRIPT_DIR}/ndk-cmake-toolchain.cmake}"
 
 # Step 1: Compile native shared library with cargo-ndk
-echo "[1/6] Compiling native cdylib with cargo-ndk (arm64-v8a, API 30)..."
+echo "[1/6] Compiling native cdylib with cargo-ndk (${APP_ABI}, API 30)..."
 CARGO_ARGS=()
 if [[ -n "${CARGO_PROFILE_FLAG}" ]]; then CARGO_ARGS+=("${CARGO_PROFILE_FLAG}"); fi
 if [[ -n "${APP_CARGO_FEATURES}" ]]; then CARGO_ARGS+=(--features "${APP_CARGO_FEATURES}"); fi
-cargo ndk -t arm64-v8a -P 30 build "${CARGO_ARGS[@]}" --locked --manifest-path "${APP_DIR}/Cargo.toml"
+cargo ndk -t "${APP_ABI}" -P 30 build "${CARGO_ARGS[@]}" --locked --manifest-path "${APP_DIR}/Cargo.toml"
 
 SO_FILE="${TARGET_DIR}/lib${APP_LIB_NAME}.so"
 if [[ ! -f "${SO_FILE}" ]]; then
@@ -140,12 +149,15 @@ fi
 
 # Step 2: Prepare packaging directories
 OUT_DIR="${APP_APK_OUT_DIR:-${APP_DIR}/target/android-apk}"
-mkdir -p "${OUT_DIR}/lib/arm64-v8a"
-cp "${SO_FILE}" "${OUT_DIR}/lib/arm64-v8a/lib${APP_LIB_NAME}.so"
+mkdir -p "${OUT_DIR}/lib/${APP_ABI}"
+cp "${SO_FILE}" "${OUT_DIR}/lib/${APP_ABI}/lib${APP_LIB_NAME}.so"
 
-UNALIGNED_APK="${OUT_DIR}/${APP_APK_NAME}-${BUILD_MODE}-unaligned.apk"
-ALIGNED_APK="${OUT_DIR}/${APP_APK_NAME}-${BUILD_MODE}-aligned.apk"
-FINAL_APK="${OUT_DIR}/${APP_APK_NAME}-${BUILD_MODE}.apk"
+# The Quest APK keeps its name; another ABI's is named after it.
+APK_STEM="${APP_APK_NAME}-${BUILD_MODE}"
+[[ "${APP_ABI}" != arm64-v8a ]] && APK_STEM="${APK_STEM}-${APP_ABI}"
+UNALIGNED_APK="${OUT_DIR}/${APK_STEM}-unaligned.apk"
+ALIGNED_APK="${OUT_DIR}/${APK_STEM}-aligned.apk"
+FINAL_APK="${OUT_DIR}/${APK_STEM}.apk"
 
 rm -f "${UNALIGNED_APK}" "${ALIGNED_APK}" "${FINAL_APK}"
 
@@ -189,7 +201,7 @@ if [[ -d "${APP_JAVA_DIR}" ]]; then
     rm -rf "${JAVA_OUT}"
     mkdir -p "${JAVA_OUT}"
     mapfile -d '' JAVA_SOURCES < <(find "${APP_JAVA_DIR}" -name '*.java' -print0)
-    javac --release 8 -classpath "${ANDROID_JAR}" \
+    javac -encoding UTF-8 --release 8 -classpath "${ANDROID_JAR}" \
         -d "${JAVA_OUT}" "${JAVA_SOURCES[@]}"
     mapfile -d '' JAVA_CLASSES < <(find "${JAVA_OUT}" -name '*.class' -print0)
     "${D8}" --lib "${ANDROID_JAR}" --min-api 30 --output "${OUT_DIR}" \
@@ -202,7 +214,7 @@ fi
 # Step 4: Add native libraries to APK (uncompressed for direct page-alignment)
 echo "[3/6] Adding native shared libraries to APK..."
 cd "${OUT_DIR}"
-"${AAPT}" add -0 so "${UNALIGNED_APK}" "lib/arm64-v8a/lib${APP_LIB_NAME}.so"
+"${AAPT}" add -0 so "${UNALIGNED_APK}" "lib/${APP_ABI}/lib${APP_LIB_NAME}.so"
 cd "${APP_DIR}"
 
 # Step 5: Align APK with zipalign (4-byte alignment, page-align shared libs)

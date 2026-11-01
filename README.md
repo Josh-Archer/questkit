@@ -9,22 +9,23 @@ Reusable Rust crates for building Meta Quest apps. They are extracted from
 | [`xr-video`](crates/xr-video) | Quest hardware video decoding (MediaCodec), Vulkan resources, Opus/PCM audio with A/V sync, stereo layout and 3D-format detection |
 | [`xr-core`](crates/xr-core) | OpenXR instance/session/frame pacing, composition layers, passthrough, hand/controller/keyboard tracking, spatial placement and grab/resize, and the shared Android APK packaging harness |
 | [`jellyfin-client`](crates/jellyfin-client) | Headless async Jellyfin client: Quick Connect, library browsing, PlaybackInfo and device profiles, session reporting |
+| [`questkit-fec`](crates/questkit-fec) | Reed-Solomon and XOR packet erasure coding with DeskQuest-compatible parity headers |
 
-`xr-core` depends on `xr-video`; `jellyfin-client` is independent of both. None depends on DeskQuest.
+`xr-core` depends on `xr-video`; `jellyfin-client` and `questkit-fec` are independent of both. These crates do not depend on DeskQuest.
 
 ```toml
 [dependencies]
 xr-core = "0.1"
 xr-video = "0.1"
 jellyfin-client = "0.1"
+questkit-fec = "0.1"
 ```
 
 ## Versioning and releases
 
-All crates share one version (lockstep) and follow [SemVer](https://semver.org); while the
-version is `0.x`, a minor bump may break the API. See [RELEASING.md](RELEASING.md) and
-[CHANGELOG.md](CHANGELOG.md). The minimum supported Rust version is in `Cargo.toml`
-(`rust-version`) and checked in CI.
+Each crate is versioned and released independently and follows [SemVer](https://semver.org); while a crate's
+version is `0.x`, a minor bump may break the API. See [RELEASING.md](RELEASING.md) and each crate's `CHANGELOG.md`.
+The minimum supported Rust version is in `Cargo.toml` (`rust-version`) and checked in CI.
 
 ## Development
 
