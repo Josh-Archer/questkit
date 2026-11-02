@@ -1889,7 +1889,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xr-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ash",
  "libc",
@@ -1906,7 +1906,7 @@ dependencies = [
 
 [[package]]
 name = "xr-video"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ash",
  "audiopus",
