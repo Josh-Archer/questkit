@@ -66,8 +66,8 @@ pub fn jellyfin_stereo(value: &str) -> Option<StereoFormat> {
     match value.trim().to_ascii_lowercase().as_str() {
         "halfsidebyside" => Some(StereoFormat::HalfSideBySide),
         "fullsidebyside" => Some(StereoFormat::FullSideBySide),
-        "fulloverunder" => Some(StereoFormat::FullOverUnder),
-        "halfoverunder" => Some(StereoFormat::HalfOverUnder),
+        "fulloverunder" | "fulltopandbottom" => Some(StereoFormat::FullOverUnder),
+        "halfoverunder" | "halftopandbottom" => Some(StereoFormat::HalfOverUnder),
         "mvc" => Some(StereoFormat::Mvc),
         _ => None,
     }
@@ -188,6 +188,8 @@ mod tests {
         for (value, expected) in [
             ("HalfSideBySide", HalfSideBySide),
             ("FullSideBySide", FullSideBySide),
+            ("FullTopAndBottom", FullOverUnder),
+            ("HalfTopAndBottom", HalfOverUnder),
             ("FullOverUnder", FullOverUnder),
             ("HalfOverUnder", HalfOverUnder),
             ("MVC", Mvc),
@@ -198,6 +200,9 @@ mod tests {
         for value in ["", "None", "FutureFormat", "HalfSideBySideExtra"] {
             assert_eq!(jellyfin_stereo(value), None, "{value}");
         }
+        let detected = detect_format(None, None, ContainerHints::default());
+        assert_eq!(detected.stereo, Mono);
+        assert_eq!(detected.stereo_source, DetectionSource::Default);
     }
 
     #[test]
