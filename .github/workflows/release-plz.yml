@@ -49,6 +49,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
+      - name: Let git push from release-plz's temp copy
+        # release-plz works in a /tmp copy of the repo, where checkout's includeIf.gitdir credentials don't apply.
+        env:
+          TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
       - name: Run release-plz release
         uses: release-plz/action@476794ede164c5137bfc3a1dc6ed3675275690f9 # v0.5.99
         with:
@@ -92,6 +97,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
+      - name: Let git push from release-plz's temp copy
+        # release-plz works in a /tmp copy of the repo, where checkout's includeIf.gitdir credentials don't apply.
+        env:
+          TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
       - name: Run release-plz release-pr
         uses: release-plz/action@476794ede164c5137bfc3a1dc6ed3675275690f9 # v0.5.99
         with:
