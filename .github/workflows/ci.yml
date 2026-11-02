@@ -146,4 +146,6 @@ jobs:
         with:
           shared-key: "questkit-msrv"
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo check --workspace --all-targets
+      # MSRV 1.88 verified with Cargo.lock: 1.87 fails (icu_collections/icu_locale_core
+      # 2.4 use let-chains; libloading 0.9 declares rust-version 1.88).
+      - run: cargo check --workspace --all-targets --locked
