@@ -28,7 +28,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
+          # release-plz pushes tags and the release branch with git, so the credentials must persist.
+          token: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Install system dependencies
         # The release-plz action calls the `gh` CLI and `jq`, which the runner image lacks.
         run: |
@@ -70,7 +71,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
+          # release-plz pushes tags and the release branch with git, so the credentials must persist.
+          token: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Install system dependencies
         # The release-plz action calls the `gh` CLI and `jq`, which the runner image lacks.
         run: |
