@@ -10,6 +10,7 @@ pub mod layers;
 pub mod overlay;
 pub mod passthrough;
 pub mod refresh_rate;
+mod scene_desk;
 
 pub use context::OpenXrContext;
 pub use frame_loop::{FrameLoopEngine, FramePacingMetrics};

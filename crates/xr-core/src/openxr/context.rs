@@ -231,7 +231,10 @@ pub struct OpenXrContext {
     should_exit: Arc<AtomicBool>,
     timespec_converter: Option<openxr::raw::ConvertTimespecTimeKHR>,
     keyboard_tracking: Option<super::keyboard::KeyboardTracking>,
+    /// Space Setup TABLE planes, when the scene extensions are available.
+    scene_desk: Option<super::scene_desk::SceneDesk>,
     tracked_keyboard: Option<crate::spatial::TrackedKeyboard>,
+    simulated_table_planes: Vec<crate::spatial::TablePlane>,
     passthrough: Box<dyn PassthroughBackend>,
     interaction: Box<dyn InteractionBackend>,
     hand_tracking: Box<dyn HandTrackingBackend>,
@@ -285,7 +288,9 @@ impl OpenXrContext {
             should_exit: Arc::new(AtomicBool::new(false)),
             timespec_converter: None,
             keyboard_tracking: None,
+            scene_desk: None,
             tracked_keyboard: None,
+            simulated_table_planes: Vec::new(),
             passthrough: Box::new(MockPassthroughBackend::new(true, config.enable_passthrough)),
             interaction: Box::new(MockInteractionBackend::new()),
             hand_tracking: Box::new(MockHandTrackingBackend::new(true)),
@@ -405,6 +410,16 @@ impl OpenXrContext {
                     .iter()
                     .map(|name| name.to_vec()),
             );
+            required_exts.fb_spatial_entity = true;
+            required_exts.fb_spatial_entity_query = true;
+            required_exts.fb_scene = true;
+        }
+
+        // Space Setup TABLE planes for desk detection (palm calibration overrides them).
+        let supports_scene_planes = available_exts.fb_spatial_entity
+            && available_exts.fb_spatial_entity_query
+            && available_exts.fb_scene;
+        if supports_scene_planes {
             required_exts.fb_spatial_entity = true;
             required_exts.fb_spatial_entity_query = true;
             required_exts.fb_scene = true;
@@ -663,6 +678,13 @@ impl OpenXrContext {
             None
         };
 
+        let scene_desk = if supports_scene_planes {
+            Some(super::scene_desk::SceneDesk::new(&session))
+        } else {
+            tracing::info!("scene extensions unavailable; desk comes from palm calibration only");
+            None
+        };
+
         // Initialize Quest Passthrough (XR_FB_passthrough)
         let passthrough: Box<dyn PassthroughBackend> = if supports_passthrough {
             let blend_modes = instance
@@ -781,7 +803,9 @@ impl OpenXrContext {
             should_exit: Arc::new(AtomicBool::new(false)),
             timespec_converter,
             keyboard_tracking,
+            scene_desk,
             tracked_keyboard: None,
+            simulated_table_planes: Vec::new(),
             passthrough,
             interaction,
             hand_tracking,
@@ -1208,6 +1232,12 @@ impl OpenXrContext {
                     tracker.event(&*event_storage.as_ptr());
                 }
             }
+            if let Some(scene) = &mut self.scene_desk {
+                // SAFETY: as above, a complete typed event on success.
+                unsafe {
+                    scene.event(&*event_storage.as_ptr());
+                }
+            }
             let Some(event) = (unsafe { openxr::Event::from_raw(&event_storage) }) else {
                 continue;
             };
@@ -1504,11 +1534,16 @@ impl OpenXrContext {
             let (mut rays_ok, mut cursor_ok, mut mask_ok, mut frame_ok, mut plus_ok) =
                 (false, false, false, false, false);
             let mut chrome_ok = [false; 3];
-            let mut connect_ok = false;
-            let connect_index = overlay.billboard.as_ref().map(|p| p.texture_index);
+            let billboards = [&overlay.desk_billboard, &overlay.billboard];
+            let mut billboards_ok = [false; 2];
             if let Some(o) = &mut self.overlay_swapchains {
-                if let Some(texture) = connect_index.and_then(|index| o.billboards.get_mut(index)) {
-                    connect_ok = texture.ensure(vulkan_context);
+                for (ok, billboard) in billboards_ok.iter_mut().zip(billboards) {
+                    if let Some(texture) = billboard
+                        .as_ref()
+                        .and_then(|b| o.billboards.get_mut(b.texture_index))
+                    {
+                        *ok = texture.ensure(vulkan_context);
+                    }
                 }
                 if !overlay.pointers.is_empty() {
                     rays_ok = o.ray.ensure(vulkan_context);
@@ -1545,16 +1580,17 @@ impl OpenXrContext {
             let ov = self.overlay_swapchains.as_ref();
             let mut pointer_layers = Vec::new();
             if let Some(o) = ov {
-                if let (true, Some(index), Some(prompt)) =
-                    (connect_ok, connect_index, &overlay.billboard)
-                {
-                    pointer_layers.push(crate::openxr::layers::build_overlay_quad(
-                        space,
-                        o.billboards[index].swapchain(),
-                        o.billboards[index].chain.size,
-                        openxr::Posef::from(prompt.pose),
-                        prompt.size,
-                    ));
+                for (ok, billboard) in billboards_ok.iter().zip(billboards) {
+                    if let (true, Some(b)) = (ok, billboard) {
+                        let texture = &o.billboards[b.texture_index];
+                        pointer_layers.push(crate::openxr::layers::build_overlay_quad(
+                            space,
+                            texture.swapchain(),
+                            texture.chain.size,
+                            openxr::Posef::from(b.pose),
+                            b.size,
+                        ));
+                    }
                 }
                 let looks = [&o.bar, &o.edge, &o.corner];
                 for ((ok, (handle, size_px)), look) in chrome_ok.iter().zip(&chrome).zip(looks) {
@@ -1720,6 +1756,22 @@ impl OpenXrContext {
             self.tracked_keyboard = tracker.update(base, time);
         }
         self.tracked_keyboard
+    }
+
+    /// Space Setup TABLE planes in stage space at `time`; empty when unavailable.
+    pub fn poll_table_planes(&mut self, time: Time) -> Vec<crate::spatial::TablePlane> {
+        if self.is_simulated {
+            return self.simulated_table_planes.clone();
+        }
+        match (&mut self.scene_desk, &self.stage_space) {
+            (Some(scene), Some(base)) => scene.update(base, time),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Supplies TABLE planes to the simulated runtime (no effect on a live session).
+    pub fn set_simulated_table_planes(&mut self, planes: Vec<crate::spatial::TablePlane>) {
+        self.simulated_table_planes = planes;
     }
 
     /// Supplies a keyboard pose to the simulated runtime (no effect on a live session).
