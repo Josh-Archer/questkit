@@ -1,6 +1,7 @@
 //! Pure-Rust spatial screen model, 6DoF transforms, pointing rays, gestures, and layout persistence.
 
 pub mod desk;
+pub mod desk_source;
 pub mod grab;
 pub mod interaction;
 pub mod keyboard;
@@ -10,9 +11,11 @@ pub mod limits;
 pub mod pose;
 pub mod ray;
 pub mod scroll;
+pub mod surface_keyboard;
 pub mod transform;
 
 pub use desk::{DeskDetector, DeskSurface, SurfaceTouchpad, TouchpadEvent, DESK_SCREEN_GAP_M};
+pub use desk_source::{desk_from_table_planes, select_desk, DeskSource, TablePlane};
 pub use grab::{
     corner_at, Corner, GrabMode, GrabSession, GrabStateMachine, InteractionEvent, InteractionState,
     TwoHandScale, CORNER_ZONE,
@@ -29,4 +32,5 @@ pub use layout::{SpatialLayoutStore, SpatialScreenLayout, CURRENT_LAYOUT_VERSION
 pub use limits::*;
 pub use pose::{Quat, ScreenPose, Vec3};
 pub use ray::{ray_intersects_cylinder, ray_intersects_quad, Ray, RayHit};
+pub use surface_keyboard::{KeyChange, KeyPresser, NearDeskVisibility, SurfaceKeyboard};
 pub use transform::{CylinderLayerParams, QuadLayerParams, ScreenTransform};

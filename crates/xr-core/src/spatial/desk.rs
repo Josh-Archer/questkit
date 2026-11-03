@@ -4,8 +4,8 @@
 //!
 //! - [`DeskDetector`] watches both palms: resting them still, flat and level on the desk
 //!   for [`DESK_HOLD_SECONDS`] calibrates a [`DeskSurface`] (see [`DeskSurface::calibrate`]).
-//!   The Quest Scene API is not requested, so this palm hold is the desk detection the
-//!   runtime runs every frame; the result serializes into the saved spatial layout.
+//!   A palm desk overrides a Space Setup table plane (see [`super::desk_source`]); the
+//!   palm result serializes into the saved spatial layout.
 //! - [`DeskSurface::snap_screen`] places a screen of a given height so its bottom edge sits a
 //!   gap above the desk.
 //! - [`SurfaceTouchpad`] turns fingertip contacts with a region of the desk into tap, drag and
@@ -118,9 +118,8 @@ impl DeskSurface {
 }
 
 /// Detects a desk from tracked palms: both palms resting still, level, and at a plausible
-/// desk height for [`DESK_HOLD_SECONDS`] calibrate a [`DeskSurface`]. This is the only desk
-/// sensor the client has on device (Quest Scene API planes are not requested), so resting
-/// both hands flat on the desk is the calibration gesture.
+/// desk height for [`DESK_HOLD_SECONDS`] calibrate a [`DeskSurface`]. Resting both hands flat
+/// on the desk is the calibration gesture; it overrides any Space Setup table plane.
 #[derive(Debug, Clone, Default)]
 pub struct DeskDetector {
     candidate: Option<([Vec3; 2], f32)>,
