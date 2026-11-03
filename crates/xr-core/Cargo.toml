@@ -1,6 +1,6 @@
 [package]
 name = "xr-core"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -14,7 +14,7 @@ categories = ["game-development","graphics"]
 exclude = ["android/test_manifest.py"]
 
 [dependencies]
-xr-video = { path = "../xr-video", version = "0.1.1" }
+xr-video = { path = "../xr-video", version = "0.1.2" }
 ash = "0.38"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
