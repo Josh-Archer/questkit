@@ -3,7 +3,9 @@
 //! The placement, gesture and hit-testing logic lives in the [`xr_spatial`] crate and is
 //! re-exported here; layout persistence stays in `xr-core` because it reports [`crate::XrError`].
 
+pub mod desk_source;
 pub mod layout;
+pub mod surface_keyboard;
 
 pub use xr_spatial::{
     desk, grab, interaction, keyboard, keyboard_summon, limits, pose, ray, scroll, transform,
@@ -22,3 +24,5 @@ pub use xr_spatial::{
     DEFAULT_GRAB_START_THRESHOLD_M, DEFAULT_PINCH_RELEASE_THRESHOLD_M,
     DEFAULT_PINCH_START_THRESHOLD_M, DESK_SCREEN_GAP_M, HAND_JOINT_COUNT,
 };
+pub use desk_source::{desk_from_table_planes, select_desk, DeskSource, TablePlane};
+pub use surface_keyboard::{KeyChange, KeyPresser, NearDeskVisibility, SurfaceKeyboard};

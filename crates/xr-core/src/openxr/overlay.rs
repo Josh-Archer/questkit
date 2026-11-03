@@ -204,6 +204,8 @@ pub struct OverlayScene<'a> {
     pub pointers: &'a [PointerVisual],
     pub chrome: &'a WindowChrome,
     pub billboard: Option<BillboardVisual>,
+    /// A second billboard drawn under `billboard`, such as the desk-surface keyboard.
+    pub desk_billboard: Option<BillboardVisual>,
 }
 
 /// Writes a pixel premultiplied by its alpha. The layers are blended with
@@ -620,6 +622,7 @@ impl Default for OverlayScene<'_> {
             pointers: &[],
             chrome: &EMPTY_CHROME,
             billboard: None,
+            desk_billboard: None,
         }
     }
 }
