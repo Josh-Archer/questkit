@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::spatial::pose::{Quat, ScreenPose, Vec3};
-use crate::spatial::ray::Ray;
+use crate::pose::{Quat, ScreenPose, Vec3};
+use crate::ray::Ray;
 
 /// OpenXR controller or hand tracker handedness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

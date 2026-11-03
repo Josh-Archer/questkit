@@ -2,11 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::DisplayMode;
-use crate::openxr::layers::DesktopLayerConfig;
-use crate::spatial::limits::*;
-use crate::spatial::pose::{Quat, ScreenPose, Vec3};
+#[cfg(feature = "openxr")]
+use crate::layer_config::DesktopLayerConfig;
+use crate::limits::*;
+use crate::pose::{Quat, ScreenPose, Vec3};
+use crate::DisplayMode;
 
+#[cfg(feature = "openxr")]
 /// Parameters for OpenXR Quad composition layer submission.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct QuadLayerParams {
@@ -16,6 +18,7 @@ pub struct QuadLayerParams {
     pub size: openxr::Extent2Df,
 }
 
+#[cfg(feature = "openxr")]
 /// Parameters for OpenXR Cylinder composition layer submission.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CylinderLayerParams {
@@ -399,6 +402,7 @@ impl ScreenTransform {
         self.aspect_ratio = clamp_aspect_ratio(self.aspect_ratio);
     }
 
+    #[cfg(feature = "openxr")]
     /// Maps this transform into OpenXR `QuadLayerParams` for flat display rendering.
     pub fn to_quad_layer_params(&self) -> QuadLayerParams {
         let pose: openxr::Posef = self.pose().into();
@@ -409,6 +413,7 @@ impl ScreenTransform {
         QuadLayerParams { pose, size }
     }
 
+    #[cfg(feature = "openxr")]
     /// Maps this transform into OpenXR `CylinderLayerParams` for curved display rendering.
     pub fn to_cylinder_layer_params(&self) -> CylinderLayerParams {
         // The cylinder axis is positioned at the user origin with yaw and tilt applied
@@ -428,6 +433,7 @@ impl ScreenTransform {
         }
     }
 
+    #[cfg(feature = "openxr")]
     /// Converts this transform into a `DesktopLayerConfig` compatible with OpenXR layer builders.
     pub fn to_desktop_layer_config(&self) -> DesktopLayerConfig {
         DesktopLayerConfig {
@@ -444,6 +450,7 @@ impl ScreenTransform {
         }
     }
 
+    #[cfg(feature = "openxr")]
     /// Creates a `ScreenTransform` initialized from an existing `DesktopLayerConfig`.
     pub fn from_desktop_layer_config(config: &DesktopLayerConfig) -> Self {
         let mut transform = Self {
@@ -533,6 +540,7 @@ mod tests {
         assert_eq!(transform.yaw, MAX_YAW_RAD);
     }
 
+    #[cfg(feature = "openxr")]
     #[test]
     fn test_to_layer_params() {
         let transform = ScreenTransform::default();
@@ -547,6 +555,7 @@ mod tests {
         assert!((cyl_params.aspect_ratio - (16.0 / 9.0)).abs() < 1e-4);
     }
 
+    #[cfg(feature = "openxr")]
     #[test]
     fn test_desktop_layer_config_conversion() {
         let mut transform = ScreenTransform::default();
@@ -603,10 +612,10 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "openxr"))]
 mod display_preset_tests {
     use super::*;
-    use crate::spatial::ray::{ray_intersects_cylinder, Ray};
+    use crate::ray::{ray_intersects_cylinder, Ray};
 
     #[test]
     fn focus_preserves_32_9_for_composition_and_pointer_hits_across_the_arc() {

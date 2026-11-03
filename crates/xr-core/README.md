@@ -1,7 +1,8 @@
 # xr-core
 
 Reusable OpenXR 0.22 instance/loader/session setup, frame pacing, Vulkan composition,
-`XR_FB_passthrough`, hand/controller and keyboard tracking, and spatial placement.
+`XR_FB_passthrough`, hand/controller and keyboard tracking, and spatial placement (the placement math lives in the
+`xr-spatial` crate and is re-exported as `xr_core::spatial`).
 The crate has no DeskQuest protocol, transport, pairing, or host dependencies.
 `xr-video` supplies the Vulkan resources and Android surface swapchain bridge used by
 this runtime. Desktop/headless callers can use `OpenXrContext::new_simulated`.

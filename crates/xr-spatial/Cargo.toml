@@ -1,0 +1,28 @@
+[package]
+name = "xr-spatial"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+description = "Spatial screen placement for XR apps: 6DoF transforms, pointing rays, grab/resize/scroll gestures, desk and keyboard detection"
+keywords = ["xr", "vr", "quest", "openxr", "spatial"]
+categories = ["game-development", "graphics", "mathematics"]
+
+[features]
+default = []
+# Conversions to and from OpenXR pose types, OpenXR layer parameters and `DesktopLayerConfig`.
+openxr = ["dep:openxr"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+# No default features: the application (or xr-core) chooses how OpenXR is linked, for example
+# the statically linked loader on Android.
+openxr = { version = "0.22", default-features = false, optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"

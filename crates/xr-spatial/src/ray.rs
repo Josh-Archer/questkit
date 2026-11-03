@@ -1,9 +1,9 @@
 //! 3D pointing rays and ray intersection algorithms for flat quad and curved cylinder screens.
 
-use crate::config::DisplayMode;
-use crate::spatial::limits::WINDOW_MARGIN_FRAC;
-use crate::spatial::pose::{ScreenPose, Vec3};
-use crate::spatial::transform::ScreenTransform;
+use crate::limits::WINDOW_MARGIN_FRAC;
+use crate::pose::{ScreenPose, Vec3};
+use crate::transform::ScreenTransform;
+use crate::DisplayMode;
 
 /// 3D pointing ray with an origin point and normalized direction vector.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -323,7 +323,7 @@ fn closest<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spatial::pose::Quat;
+    use crate::pose::Quat;
     use std::f32::consts::FRAC_PI_2;
 
     #[test]
