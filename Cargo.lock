@@ -600,7 +600,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jellyfin-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "parking_lot 0.13.0",
  "reqwest",
@@ -1929,7 +1929,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xr-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ash",
  "libc",
@@ -1946,7 +1946,7 @@ dependencies = [
 
 [[package]]
 name = "xr-video"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ash",
  "audiopus",
