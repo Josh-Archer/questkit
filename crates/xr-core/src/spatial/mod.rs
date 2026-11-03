@@ -11,7 +11,9 @@ pub use xr_spatial::{
     desk, grab, interaction, keyboard, keyboard_summon, limits, pose, ray, scroll, transform,
 };
 
+pub use desk_source::{desk_from_table_planes, select_desk, DeskSource, TablePlane};
 pub use layout::{SpatialLayoutStore, SpatialScreenLayout, CURRENT_LAYOUT_VERSION};
+pub use surface_keyboard::{KeyChange, KeyPresser, NearDeskVisibility, SurfaceKeyboard};
 pub use xr_spatial::limits::*;
 pub use xr_spatial::{
     corner_at, ray_intersects_cylinder, ray_intersects_quad, ControllerInputState, Corner,
@@ -24,5 +26,3 @@ pub use xr_spatial::{
     DEFAULT_GRAB_START_THRESHOLD_M, DEFAULT_PINCH_RELEASE_THRESHOLD_M,
     DEFAULT_PINCH_START_THRESHOLD_M, DESK_SCREEN_GAP_M, HAND_JOINT_COUNT,
 };
-pub use desk_source::{desk_from_table_planes, select_desk, DeskSource, TablePlane};
-pub use surface_keyboard::{KeyChange, KeyPresser, NearDeskVisibility, SurfaceKeyboard};
