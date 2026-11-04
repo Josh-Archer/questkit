@@ -4,7 +4,7 @@
 //!
 //! - [`DeskDetector`] watches both palms: resting them still, flat and level on the desk
 //!   for [`DESK_HOLD_SECONDS`] calibrates a [`DeskSurface`] (see [`DeskSurface::calibrate`]).
-//!   A palm desk overrides a Space Setup table plane (see [`super::desk_source`]); the
+//!   A palm desk overrides a Space Setup table plane (see `xr_core::spatial::desk_source`); the
 //!   palm result serializes into the saved spatial layout.
 //! - [`DeskSurface::snap_screen`] places a screen of a given height so its bottom edge sits a
 //!   gap above the desk.

@@ -174,7 +174,7 @@ impl HandScrollDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spatial::Handedness;
+    use crate::Handedness;
 
     fn sample() -> (InteractionInput, HandTrackingData, ScreenTransform) {
         let screen = ScreenTransform::for_display(0);
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn native_flags_are_authoritative_including_release_invalidity_and_system_gestures() {
-        use crate::spatial::{HandAimState, ScreenPose};
+        use crate::{HandAimState, ScreenPose};
         let (input, mut hand, screen) = sample();
         let aim = HandAimState {
             valid: true,

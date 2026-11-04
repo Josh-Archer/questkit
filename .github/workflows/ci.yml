@@ -53,6 +53,9 @@ jobs:
       - name: Run clippy linter
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - name: Clippy xr-spatial without optional features
+        run: cargo clippy -p xr-spatial --all-targets --locked -- -D warnings
+
   tests:
     name: Tests
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'uecb-shared' }}
@@ -74,6 +77,9 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Run workspace tests
         run: cargo test --workspace --locked
+
+      - name: Test xr-spatial without optional features
+        run: cargo test -p xr-spatial --locked
 
   package:
     name: XR reuse & package

@@ -169,6 +169,7 @@ impl From<Vec3> for [f32; 3] {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<openxr::Vector3f> for Vec3 {
     fn from(v: openxr::Vector3f) -> Self {
         Self {
@@ -179,6 +180,7 @@ impl From<openxr::Vector3f> for Vec3 {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<Vec3> for openxr::Vector3f {
     fn from(v: Vec3) -> Self {
         openxr::Vector3f {
@@ -341,6 +343,7 @@ impl From<Quat> for [f32; 4] {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<openxr::Quaternionf> for Quat {
     fn from(q: openxr::Quaternionf) -> Self {
         Self {
@@ -352,6 +355,7 @@ impl From<openxr::Quaternionf> for Quat {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<Quat> for openxr::Quaternionf {
     fn from(q: Quat) -> Self {
         openxr::Quaternionf {
@@ -386,6 +390,7 @@ impl ScreenPose {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<openxr::Posef> for ScreenPose {
     fn from(p: openxr::Posef) -> Self {
         Self {
@@ -395,6 +400,7 @@ impl From<openxr::Posef> for ScreenPose {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<ScreenPose> for openxr::Posef {
     fn from(p: ScreenPose) -> Self {
         openxr::Posef {
@@ -453,6 +459,7 @@ mod tests {
         assert!(rotated.z.abs() < 1e-5);
     }
 
+    #[cfg(feature = "openxr")]
     #[test]
     fn test_openxr_conversions() {
         let v = Vec3::new(1.0, 2.0, -3.0);

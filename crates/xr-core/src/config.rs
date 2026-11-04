@@ -1,13 +1,5 @@
 //! OpenXR configuration independent of app networking and settings.
-use serde::{Deserialize, Serialize};
-/// Virtual display projection mode in OpenXR space.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DisplayMode {
-    /// Flat virtual monitor quad (`XrCompositionLayerQuad`).
-    FlatQuad,
-    /// Curved virtual monitor wrapping user field of view (`XrCompositionLayerCylinderKHR`).
-    CurvedCylinder,
-}
+pub use xr_spatial::DisplayMode;
 
 /// Runtime and composition settings. Applications own persisted settings and validation.
 #[derive(Debug, Clone)]

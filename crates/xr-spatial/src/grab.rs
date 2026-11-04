@@ -1,13 +1,11 @@
 //! 6DoF screen grab state machine coordinating hover, rigid drag, corner resize, push/pull, tilt/curve, and layout persistence on release.
 
-use crate::config::DisplayMode;
-use crate::spatial::interaction::{InteractionInput, InteractionSource};
-use crate::spatial::limits::{
-    clamp_curve_angle, clamp_distance, clamp_tilt, MIN_TWO_HAND_SEPARATION_M,
-};
-use crate::spatial::pose::{Quat, ScreenPose, Vec3};
-use crate::spatial::ray::{Ray, RayHit};
-use crate::spatial::transform::ScreenTransform;
+use crate::interaction::{InteractionInput, InteractionSource};
+use crate::limits::{clamp_curve_angle, clamp_distance, clamp_tilt, MIN_TWO_HAND_SEPARATION_M};
+use crate::pose::{Quat, ScreenPose, Vec3};
+use crate::ray::{Ray, RayHit};
+use crate::transform::ScreenTransform;
+use crate::DisplayMode;
 
 /// Size of the corner zones, as a fraction of the screen's width and height, that start a resize.
 pub const CORNER_ZONE: f32 = 0.12;
@@ -806,9 +804,9 @@ fn apply_thumbstick(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spatial::interaction::Handedness;
-    use crate::spatial::limits::{MAX_CURVE_ANGLE_RAD, MAX_SCREEN_WIDTH_M, MIN_SCREEN_WIDTH_M};
-    use crate::spatial::pose::{Quat, Vec3};
+    use crate::interaction::Handedness;
+    use crate::limits::{MAX_CURVE_ANGLE_RAD, MAX_SCREEN_WIDTH_M, MIN_SCREEN_WIDTH_M};
+    use crate::pose::{Quat, Vec3};
     use std::f32::consts::FRAC_PI_2;
 
     #[test]
@@ -824,7 +822,7 @@ mod tests {
         // 1. Ray aiming at screen (not grabbing) -> HoverStarted
         let input_hover = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
+            aim_ray: Some(crate::ray::Ray::new(
                 Vec3::new(0.0, 1.4, 0.0),
                 Vec3::new(0.0, 0.0, -1.0),
             )),
@@ -859,7 +857,7 @@ mod tests {
         // 3. Drag controller (translate right +0.3m, up +0.1m): its ray moves with it
         let mut input_drag = input_grab;
         input_drag.grab_pose = Some(ScreenPose::new(Vec3::new(0.5, 1.3, -0.4), Quat::IDENTITY));
-        input_drag.aim_ray = Some(crate::spatial::ray::Ray::new(
+        input_drag.aim_ray = Some(crate::ray::Ray::new(
             Vec3::new(0.3, 1.5, 0.0),
             Vec3::new(0.0, 0.0, -1.0),
         ));
@@ -912,7 +910,7 @@ mod tests {
         // Start grab at origin
         let input_start = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
+            aim_ray: Some(crate::ray::Ray::new(
                 Vec3::new(0.0, 1.4, 0.0),
                 Vec3::new(0.0, 0.0, -1.0),
             )),
@@ -936,7 +934,7 @@ mod tests {
         );
         let mut input_rotated = input_start;
         input_rotated.grab_pose = Some(rotated_pose);
-        input_rotated.aim_ray = Some(crate::spatial::ray::Ray::new(
+        input_rotated.aim_ray = Some(crate::ray::Ray::new(
             rotated_pose.position,
             rotated_pose
                 .orientation
@@ -971,7 +969,7 @@ mod tests {
         // Start grab
         let input_hover = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
+            aim_ray: Some(crate::ray::Ray::new(
                 Vec3::new(0.0, 1.4, 0.0),
                 Vec3::new(0.0, 0.0, -1.0),
             )),
@@ -1019,7 +1017,7 @@ mod tests {
     fn hover_input(hand: Handedness, pos: Vec3) -> InteractionInput {
         InteractionInput {
             source: InteractionSource::Hand(hand),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
+            aim_ray: Some(crate::ray::Ray::new(
                 Vec3::new(0.0, 1.4, 0.0),
                 Vec3::new(0.0, 0.0, -1.0),
             )),
@@ -1749,10 +1747,7 @@ mod tests {
     fn grab_flat_screen(sm: &mut GrabStateMachine, screen: &ScreenTransform, origin: Vec3) {
         let input = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
-                origin,
-                Vec3::new(0.0, 0.0, -1.0),
-            )),
+            aim_ray: Some(crate::ray::Ray::new(origin, Vec3::new(0.0, 0.0, -1.0))),
             grab_pose: Some(ScreenPose::new(origin, Quat::IDENTITY)),
             is_grabbing: false,
             is_selecting: false,
@@ -1781,10 +1776,7 @@ mod tests {
         let twisted = Quat::from_euler(0.4, 0.0, 0.7);
         let input = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
-                origin,
-                Vec3::new(0.0, 0.0, -1.0),
-            )),
+            aim_ray: Some(crate::ray::Ray::new(origin, Vec3::new(0.0, 0.0, -1.0))),
             grab_pose: Some(ScreenPose::new(origin, twisted)),
             is_grabbing: true,
             is_selecting: false,
@@ -1811,10 +1803,7 @@ mod tests {
         grab_flat_screen(&mut sm, &screen, origin);
         let input = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
-                origin,
-                Vec3::new(0.0, 0.0, -1.0),
-            )),
+            aim_ray: Some(crate::ray::Ray::new(origin, Vec3::new(0.0, 0.0, -1.0))),
             grab_pose: Some(ScreenPose::new(origin, Quat::IDENTITY)),
             is_grabbing: true,
             is_selecting: false,
@@ -1841,10 +1830,7 @@ mod tests {
         let forward = origin + Vec3::new(0.0, 0.0, -0.1);
         let input = InteractionInput {
             source: InteractionSource::Controller(Handedness::Right),
-            aim_ray: Some(crate::spatial::ray::Ray::new(
-                forward,
-                Vec3::new(0.0, 0.0, -1.0),
-            )),
+            aim_ray: Some(crate::ray::Ray::new(forward, Vec3::new(0.0, 0.0, -1.0))),
             grab_pose: Some(ScreenPose::new(forward, Quat::IDENTITY)),
             is_grabbing: true,
             is_selecting: false,

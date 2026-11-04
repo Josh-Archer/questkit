@@ -1941,7 +1941,18 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "tracing",
+ "xr-spatial",
  "xr-video",
+]
+
+[[package]]
+name = "xr-spatial"
+version = "0.1.0"
+dependencies = [
+ "openxr",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

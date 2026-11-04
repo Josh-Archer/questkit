@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/xr-video",
     "crates/xr-core",
+    "crates/xr-spatial",
     "crates/jellyfin-client",
     "crates/questkit-fec",
 ]
