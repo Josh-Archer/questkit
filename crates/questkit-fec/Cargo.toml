@@ -2,7 +2,9 @@
 name = "questkit-fec"
 version = "0.1.1"
 edition.workspace = true
-rust-version.workspace = true
+# Below the workspace MSRV: this crate does not use parking_lot 0.13 (the 1.95 requirement).
+# CI checks it on this exact toolchain.
+rust-version = "1.88"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
