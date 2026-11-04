@@ -18,6 +18,13 @@ fn selects_direct_play_then_remux_then_transcode() {
     ]))).unwrap();
     assert_eq!(res.method, PlayMethod::DirectPlay);
     assert_eq!(res.source_id, "direct");
+    assert_eq!(
+        res.url.as_str(),
+        "https://example.org/jellyfin/Videos/item/stream?static=true&MediaSourceId=direct"
+    );
+    assert!(res
+        .reason
+        .contains("confirmed this source supports direct play"));
     let res = resolve_playback("https://example.org/jellyfin", "item", &info(json!([
         {"Id":"s", "SupportsDirectStream":true, "DirectStreamUrl":"/Videos/item/stream?api_key=secret&x=1"}
     ]))).unwrap();
@@ -30,6 +37,7 @@ fn selects_direct_play_then_remux_then_transcode() {
         {"Id":"s", "SupportsTranscoding":true, "TranscodingUrl":"/Videos/item/master.m3u8?api_key=secret&DeviceId=d"}
     ]))).unwrap();
     assert_eq!(res.method, PlayMethod::Transcode);
+    assert!(res.reason.contains("direct play is unavailable"));
     assert_eq!(
         res.url.as_str(),
         "https://example.org/jellyfin/Videos/item/master.m3u8?DeviceId=d"
