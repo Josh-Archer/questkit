@@ -42,6 +42,25 @@ fn test_quest_device_profile_limits() {
 }
 
 #[test]
+fn quest_device_profile_serializes_jellyfin_codec_limits() {
+    let profile = serde_json::to_value(quest_device_profile()).expect("profile JSON");
+    assert_eq!(profile["Name"], "Meta Quest 3");
+    assert_eq!(profile["DirectPlayProfiles"][0]["Type"], "Video");
+    assert_eq!(
+        profile["DirectPlayProfiles"][0]["VideoCodec"],
+        "hevc,h265,av1,avc,h264,vp9"
+    );
+    let hevc = &profile["CodecProfiles"][0];
+    assert_eq!(hevc["Type"], "Video");
+    assert_eq!(hevc["Codec"], "hevc");
+    assert_eq!(hevc["Conditions"][0]["Property"], "Width");
+    assert_eq!(hevc["Conditions"][0]["Value"], "8192");
+    assert_eq!(hevc["Conditions"][1]["Value"], "4320");
+    assert_eq!(hevc["Conditions"][2]["Property"], "VideoFramerate");
+    assert_eq!(hevc["Conditions"][2]["Value"], "30");
+}
+
+#[test]
 fn test_direct_play_hevc_8k30_boundary() {
     let profile = quest_device_profile();
 
@@ -150,5 +169,35 @@ fn test_direct_play_unsupported_container_and_codec() {
             );
         }
         other => panic!("Expected TranscodeRequired, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_direct_play_enforces_hevc_and_h264_frame_rate_caps() {
+    let profile = quest_device_profile();
+    for (codec, width, height, fps, expected_reason) in [
+        ("hevc", 7680, 4320, 30.1, "8K30 hardware cap"),
+        ("h264", 1920, 1080, 60.1, "H.264 60fps hardware cap"),
+    ] {
+        let item = BaseItem {
+            id: "cap-test".into(),
+            name: "Cap test".into(),
+            container: Some("mkv".into()),
+            media_streams: vec![MediaStream {
+                codec: Some(codec.into()),
+                stream_type: Some(MediaStreamType::Video),
+                width: Some(width),
+                height: Some(height),
+                real_frame_rate: Some(fps),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        match evaluate_direct_play(&profile, &item) {
+            DirectPlayDecision::TranscodeRequired { reason } => {
+                assert!(reason.contains(expected_reason), "{reason}");
+            }
+            other => panic!("Expected transcode decision, got {other:?}"),
+        }
     }
 }

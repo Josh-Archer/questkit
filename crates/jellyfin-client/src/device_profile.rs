@@ -266,8 +266,8 @@ pub fn evaluate_direct_play(profile: &DeviceProfile, item: &BaseItem) -> DirectP
                         ),
                     };
                 }
-                // Cap around 8K30: if both dimensions are > 4K and framerate > 35fps
-                if (width > 4096 || height > 2160) && framerate > 35.0 {
+                // Retain the 4K60 decode tier, then enforce the advertised 8K30 cap.
+                if (width > 4096 || height > 2160) && framerate > 30.0 {
                     return DirectPlayDecision::TranscodeRequired {
                         reason: format!(
                             "Framerate {:.1}fps at {}x{} exceeds Quest 3 8K30 hardware cap",
@@ -282,6 +282,14 @@ pub fn evaluate_direct_play(profile: &DeviceProfile, item: &BaseItem) -> DirectP
                     reason: format!(
                         "H.264 resolution {}x{} exceeds 4K hardware limit (4096x4096)",
                         width, height
+                    ),
+                };
+            }
+            if (codec_lower.contains("h264") || codec_lower.contains("avc")) && framerate > 60.0 {
+                return DirectPlayDecision::TranscodeRequired {
+                    reason: format!(
+                        "Framerate {:.1}fps exceeds Quest 3 H.264 60fps hardware cap",
+                        framerate
                     ),
                 };
             }

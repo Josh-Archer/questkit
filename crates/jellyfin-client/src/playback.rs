@@ -100,6 +100,8 @@ pub struct ResolvedPlayback {
     pub url: Url,
     pub source_id: String,
     pub method: crate::PlayMethod,
+    /// Explanation of the selected playback path, suitable for diagnostics or UI.
+    pub reason: String,
 }
 
 /// Prefer direct play, then a server-provided direct-stream or transcoding URL.
@@ -117,6 +119,7 @@ pub fn resolve_playback(
             url,
             source_id: source.id.clone(),
             method: crate::PlayMethod::DirectPlay,
+            reason: "Jellyfin confirmed this source supports direct play".into(),
         });
     }
     for method in [
@@ -139,6 +142,16 @@ pub fn resolve_playback(
                     url,
                     source_id: source.id.clone(),
                     method,
+                    reason: match method {
+                        crate::PlayMethod::DirectStream => {
+                            "Jellyfin selected direct stream for this source".into()
+                        }
+                        crate::PlayMethod::Transcode => {
+                            "Jellyfin selected transcoding because direct play is unavailable"
+                                .into()
+                        }
+                        crate::PlayMethod::DirectPlay => unreachable!("handled above"),
+                    },
                 });
             }
         }
