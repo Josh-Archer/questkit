@@ -30,7 +30,8 @@ impl GaloisField {
         GaloisField { exp, log }
     }
 
-    #[inline(always)]
+    /// Reference log/exp product; the hot paths use [`MUL`] instead.
+    #[cfg(test)]
     fn mul(&self, a: u8, b: u8) -> u8 {
         if a == 0 || b == 0 {
             0
@@ -52,6 +53,69 @@ impl GaloisField {
 }
 
 static GF: GaloisField = GaloisField::init();
+
+/// Full GF(2^8) product table: `MUL[a][b] == GF.mul(a, b)`.
+///
+/// 64 KiB, built at compile time. Row `MUL[c]` turns "multiply every byte by
+/// `c`" into one branch-free lookup per byte, which is the inner loop of both
+/// encode and decode.
+static MUL: [[u8; 256]; 256] = {
+    let gf = GaloisField::init();
+    let mut table = [[0u8; 256]; 256];
+    let mut a = 1;
+    while a < 256 {
+        let log_a = gf.log[a] as usize;
+        let mut b = 1;
+        while b < 256 {
+            table[a][b] = gf.exp[log_a + gf.log[b] as usize];
+            b += 1;
+        }
+        a += 1;
+    }
+    table
+};
+
+/// `dst[i] ^= coeff * src[i]` for every `i < src.len()`.
+#[inline]
+fn mul_acc(dst: &mut [u8], src: &[u8], coeff: u8) {
+    let dst = &mut dst[..src.len()];
+    match coeff {
+        0 => {}
+        1 => {
+            for (d, s) in dst.iter_mut().zip(src) {
+                *d ^= *s;
+            }
+        }
+        _ => {
+            let row = &MUL[coeff as usize];
+            for (d, s) in dst.iter_mut().zip(src) {
+                *d ^= row[*s as usize];
+            }
+        }
+    }
+}
+
+/// `buf[i] = coeff * buf[i]` in place.
+#[inline]
+fn mul_in_place(buf: &mut [u8], coeff: u8) {
+    if coeff == 1 {
+        return;
+    }
+    let row = &MUL[coeff as usize];
+    for b in buf.iter_mut() {
+        *b = row[*b as usize];
+    }
+}
+
+/// Accumulates `coeff * symbol(packet)` into `dst`, where `symbol(packet)` is
+/// `[len: u16 BE][payload][zero padding]`. Padding contributes nothing, so the
+/// padded symbol is never materialised.
+#[inline]
+fn mul_acc_packet(dst: &mut [u8], packet: &[u8], coeff: u8) {
+    let len = (packet.len() as u16).to_be_bytes();
+    mul_acc(&mut dst[..2], &len, coeff);
+    mul_acc(&mut dst[2..], packet, coeff);
+}
 
 /// Systematic Cauchy Reed-Solomon Erasure Codec over Galois Field GF(2^8).
 ///
@@ -102,29 +166,14 @@ impl ReedSolomonFec {
         }
         let symbol_size = max_len + 2;
 
-        // Prepare source symbols: [len: u16][payload...][zero pad]
-        let mut source_symbols = Vec::with_capacity(k);
-        for packet in source_packets {
-            let mut symbol = vec![0u8; symbol_size];
-            let len = packet.len() as u16;
-            let len_bytes = len.to_be_bytes();
-            symbol[0] = len_bytes[0];
-            symbol[1] = len_bytes[1];
-            symbol[2..2 + packet.len()].copy_from_slice(packet);
-            source_symbols.push(symbol);
-        }
-
         let mut parity_packets = Vec::with_capacity(m);
 
         for p_idx in 0..m {
             let mut parity_symbol = vec![0u8; symbol_size];
 
-            for s_idx in 0..k {
+            for (s_idx, packet) in source_packets.iter().enumerate() {
                 let coeff = Self::cauchy_coeff(k, m, p_idx, s_idx)?;
-                let src = &source_symbols[s_idx];
-                for b_idx in 0..symbol_size {
-                    parity_symbol[b_idx] ^= GF.mul(coeff, src[b_idx]);
-                }
+                mul_acc_packet(&mut parity_symbol, packet, coeff);
             }
 
             let header = FecHeader::new(
@@ -228,40 +277,26 @@ impl ReedSolomonFec {
             parsed_parities.push((*p_idx, slice[..symbol_size].to_vec()));
         }
 
-        // Prepare known source symbols
-        let mut known_symbols: HashMap<usize, Vec<u8>> =
-            HashMap::with_capacity(received_sources.len());
         for (&idx, packet) in &received_sources {
             if idx >= k || packet.len() + 2 > symbol_size {
                 return Err(FecError::CorruptHeader);
             }
-            let mut sym = vec![0u8; symbol_size];
-            let len = packet.len() as u16;
-            let len_bytes = len.to_be_bytes();
-            sym[0] = len_bytes[0];
-            sym[1] = len_bytes[1];
-            sym[2..2 + packet.len()].copy_from_slice(packet);
-            known_symbols.insert(idx, sym);
         }
 
         // Construct linear system A * X = R
         // where A is num_missing x num_missing
         // R is num_missing x symbol_size
         let mut a: Vec<Vec<u8>> = vec![vec![0u8; num_missing]; num_missing];
-        let mut r: Vec<Vec<u8>> = vec![vec![0u8; symbol_size]; num_missing];
+        let mut r: Vec<Vec<u8>> = Vec::with_capacity(num_missing);
 
-        for row in 0..num_missing {
-            let (p_idx, ref p_symbol) = parsed_parities[row];
-
+        for (row, (p_idx, p_symbol)) in parsed_parities.into_iter().enumerate() {
             // R[row] = P[p_idx] ^ sum_{s in known} (C[p_idx, s] * S[s])
-            r[row].copy_from_slice(p_symbol);
-
-            for (&s_idx, s_symbol) in &known_symbols {
+            let mut acc = p_symbol;
+            for (&s_idx, packet) in &received_sources {
                 let coeff = Self::cauchy_coeff(k, m, p_idx, s_idx)?;
-                for b in 0..symbol_size {
-                    r[row][b] ^= GF.mul(coeff, s_symbol[b]);
-                }
+                mul_acc_packet(&mut acc, packet, coeff);
             }
+            r.push(acc);
 
             // Fill row of matrix A: A[row][col] = C[p_idx, missing_sources[col]]
             for col in 0..num_missing {
@@ -288,28 +323,24 @@ impl ReedSolomonFec {
             }
 
             let pivot_inv = GF.inv(a[i][i])?;
-            for col in 0..num_missing {
-                a[i][col] = GF.mul(a[i][col], pivot_inv);
-            }
-            for b in 0..symbol_size {
-                r[i][b] = GF.mul(r[i][b], pivot_inv);
-            }
+            mul_in_place(&mut a[i], pivot_inv);
+            mul_in_place(&mut r[i], pivot_inv);
 
-            // Eliminate all other rows
+            // Eliminate all other rows. Rows `i` are moved out so the pivot row
+            // can be read while the others are written.
+            let pivot_a = std::mem::take(&mut a[i]);
+            let pivot_r = std::mem::take(&mut r[i]);
             for other in 0..num_missing {
                 if other != i {
                     let factor = a[other][i];
                     if factor != 0 {
-                        for col in 0..num_missing {
-                            a[other][col] ^= GF.mul(factor, a[i][col]);
-                        }
-                        for b in 0..symbol_size {
-                            let scaled = GF.mul(factor, r[i][b]);
-                            r[other][b] ^= scaled;
-                        }
+                        mul_acc(&mut a[other], &pivot_a, factor);
+                        mul_acc(&mut r[other], &pivot_r, factor);
                     }
                 }
             }
+            a[i] = pivot_a;
+            r[i] = pivot_r;
         }
 
         // Recovered symbols are in r[col]
@@ -357,6 +388,50 @@ mod tests {
             assert_eq!(GF.mul(a, inv), 1, "Failed for a={a}");
         }
         assert!(matches!(GF.inv(0), Err(FecError::SingularMatrix)));
+    }
+
+    #[test]
+    fn test_mul_table_matches_log_exp_product() {
+        for a in 0..=255u8 {
+            for b in 0..=255u8 {
+                assert_eq!(MUL[a as usize][b as usize], GF.mul(a, b), "a={a} b={b}");
+            }
+        }
+    }
+
+    /// Every loss pattern of up to `m` packets (sources and parities) across
+    /// several block shapes and uneven payload lengths must round-trip.
+    #[test]
+    fn test_reed_solomon_recovers_every_small_loss_pattern() {
+        for &(k, m) in &[(1usize, 1usize), (3, 2), (5, 3), (7, 4)] {
+            let sources: Vec<Bytes> = (0..k)
+                .map(|i| {
+                    Bytes::from(
+                        (0..(17 + i * 9))
+                            .map(|b| (b * 31 + i * 7) as u8)
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                .collect();
+            let parities = ReedSolomonFec::encode(9, &sources, m).unwrap();
+            let n = k + m;
+            for lost in 0u32..(1 << n) {
+                if lost.count_ones() as usize > m {
+                    continue;
+                }
+                let received: HashMap<usize, Bytes> = (0..k)
+                    .filter(|i| lost & (1 << i) == 0)
+                    .map(|i| (i, sources[i].clone()))
+                    .collect();
+                let received_parities: Vec<(usize, Bytes)> = (0..m)
+                    .filter(|j| lost & (1 << (k + j)) == 0)
+                    .map(|j| (j, parities[j].clone()))
+                    .collect();
+                let recovered =
+                    ReedSolomonFec::decode(9, k, m, received, &received_parities).unwrap();
+                assert_eq!(recovered, sources, "k={k} m={m} lost={lost:#b}");
+            }
+        }
     }
 
     #[test]
