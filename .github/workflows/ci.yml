@@ -152,6 +152,18 @@ jobs:
         with:
           shared-key: "questkit-msrv"
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      # MSRV 1.88 verified with Cargo.lock: 1.87 fails (icu_collections/icu_locale_core
-      # 2.4 use let-chains; libloading 0.9 declares rust-version 1.88).
+      # The workspace MSRV (1.95) is set by parking_lot 0.13. Crates that don't need it declare
+      # their own lower rust-version; the next step checks each on that exact toolchain.
       - run: cargo check --workspace --all-targets --locked
+      - name: Check crates that declare a lower rust-version
+        run: |
+          set -euo pipefail
+          workspace="${{ steps.msrv.outputs.version }}"
+          cargo metadata --no-deps --format-version 1 --locked \
+            | python3 -c 'import json,sys; ws=sys.argv[1]; [print(p["name"], p["rust_version"]) for p in json.load(sys.stdin)["packages"] if p.get("rust_version") and p["rust_version"] != ws]' "$workspace" \
+            | while read -r name version; do
+                echo "::group::$name on Rust $version"
+                rustup toolchain install "$version" --profile minimal --no-self-update
+                cargo +"$version" check -p "$name" --all-targets --all-features --locked
+                echo "::endgroup::"
+              done
