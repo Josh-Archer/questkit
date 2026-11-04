@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/Josh-Archer/questkit/compare/xr-core-v0.1.3...xr-core-v0.1.4) - 2026-11-04
+
+### Other
+
+- updated the following local packages: xr-spatial
+
 ## [0.1.3](https://github.com/Josh-Archer/questkit/compare/xr-core-v0.1.2...xr-core-v0.1.3) - 2026-11-04
 
 ### Added

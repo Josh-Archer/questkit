@@ -1,6 +1,6 @@
 [package]
 name = "xr-core"
-version = "0.1.3"
+version = "0.1.4"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -15,7 +15,7 @@ exclude = ["android/test_manifest.py"]
 
 [dependencies]
 xr-video = { path = "../xr-video", version = "0.1.2" }
-xr-spatial = { path = "../xr-spatial", version = "0.1.0", features = ["openxr"] }
+xr-spatial = { path = "../xr-spatial", version = "0.1.1", features = ["openxr"] }
 ash = "0.38"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
