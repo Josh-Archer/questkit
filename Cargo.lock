@@ -934,7 +934,7 @@ dependencies = [
 
 [[package]]
 name = "questkit-fec"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bytes",
  "thiserror 2.0.21",
@@ -1929,7 +1929,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xr-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "ash",
  "libc",
@@ -1947,7 +1947,7 @@ dependencies = [
 
 [[package]]
 name = "xr-spatial"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "openxr",
  "serde",
