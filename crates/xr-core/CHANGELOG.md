@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/Josh-Archer/questkit/compare/xr-core-v0.1.5...xr-core-v0.1.6) - 2026-11-07
+
+### Added
+
+- *(xr-core)* enable equirectangular composition layers
+
 ## [0.1.5](https://github.com/Josh-Archer/questkit/compare/xr-core-v0.1.4...xr-core-v0.1.5) - 2026-11-04
 
 ### Other
