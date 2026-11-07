@@ -1333,6 +1333,48 @@ impl OpenXrContext {
         Ok(Some(swapchain))
     }
 
+    /// Creates an RGBA UI texture with transfer usage for CPU-rendered panel artwork.
+    /// The caller owns image acquisition and lifetime; this does not replace the shared HUD.
+    pub fn create_ui_swapchain(
+        &self,
+        width: u32,
+        height: u32,
+    ) -> XrResult<Option<Swapchain<Vulkan>>> {
+        if width == 0 || height == 0 {
+            return Err(XrError::OpenXr("UI dimensions must be positive".into()));
+        }
+        if self.is_simulated {
+            return Ok(None);
+        }
+        let session = self
+            .session
+            .as_ref()
+            .ok_or_else(|| XrError::OpenXr("Session not initialized".into()))?;
+        let formats = session
+            .enumerate_swapchain_formats()
+            .map_err(|e| XrError::OpenXr(format!("Cannot enumerate UI formats: {e:?}")))?;
+        let format = [vk::Format::R8G8B8A8_SRGB, vk::Format::R8G8B8A8_UNORM]
+            .into_iter()
+            .find(|f| formats.contains(&(f.as_raw() as u32)))
+            .ok_or_else(|| XrError::OpenXr("Runtime has no RGBA UI format".into()))?;
+        session
+            .create_swapchain(&SwapchainCreateInfo {
+                create_flags: SwapchainCreateFlags::EMPTY,
+                usage_flags: SwapchainUsageFlags::COLOR_ATTACHMENT
+                    | SwapchainUsageFlags::SAMPLED
+                    | SwapchainUsageFlags::TRANSFER_DST,
+                format: format.as_raw() as u32,
+                sample_count: 1,
+                width,
+                height,
+                face_count: 1,
+                array_size: 1,
+                mip_count: 1,
+            })
+            .map(Some)
+            .map_err(|e| XrError::OpenXr(format!("Cannot create UI swapchain: {e:?}")))
+    }
+
     /// Returns the stage reference space for 6DoF tracking.
     pub fn stage_space(&self) -> Option<&Space> {
         self.stage_space.as_ref()
