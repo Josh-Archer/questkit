@@ -220,6 +220,7 @@ pub struct OpenXrContext {
     session_state: SessionState,
     session_running: Arc<AtomicBool>,
     supports_cylinder: bool,
+    supports_equirect2: bool,
     desktop_swapchain_is_surface: bool,
     /// Pixel size of the primary screen's swapchain, which its layer shows in full.
     desktop_size: (u32, u32),
@@ -280,6 +281,7 @@ impl OpenXrContext {
             session_state: SessionState::FOCUSED,
             session_running: Arc::new(AtomicBool::new(true)),
             supports_cylinder: true,
+            supports_equirect2: true,
             desktop_swapchain_is_surface: false,
             desktop_size: (config.stream_width, config.stream_height),
             supports_layer_settings: false,
@@ -365,6 +367,9 @@ impl OpenXrContext {
         if supports_cylinder {
             required_exts.khr_composition_layer_cylinder = true;
         }
+
+        let supports_equirect2 = available_exts.khr_composition_layer_equirect2;
+        required_exts.khr_composition_layer_equirect2 = supports_equirect2;
 
         let supports_refresh_rate = available_exts.fb_display_refresh_rate;
         if supports_refresh_rate {
@@ -795,6 +800,7 @@ impl OpenXrContext {
             session_state: SessionState::IDLE,
             session_running: Arc::new(AtomicBool::new(false)),
             supports_cylinder,
+            supports_equirect2,
             desktop_swapchain_is_surface: false,
             desktop_size: (config.stream_width, config.stream_height),
             supports_layer_settings: available_exts.fb_composition_layer_settings,
@@ -1350,6 +1356,12 @@ impl OpenXrContext {
     /// Whether the OpenXR runtime supports curved cylinder layers.
     pub fn supports_cylinder(&self) -> bool {
         self.supports_cylinder
+    }
+
+    /// Whether spherical equirectangular composition layers are enabled on this instance.
+    /// Consumers must check this before submitting `CompositionLayerEquirect2KHR`.
+    pub fn supports_equirect2(&self) -> bool {
+        self.supports_equirect2
     }
 
     /// Waits for the next frame presentation pacing slot from OpenXR.
