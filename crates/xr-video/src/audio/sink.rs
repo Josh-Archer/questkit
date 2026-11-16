@@ -304,6 +304,35 @@ impl BufferSizer {
     }
 }
 
+/// AAudio write returns a nonnegative frame count, not a status code. ndk 0.9
+/// incorrectly maps positive counts to AudioError; recover the preserved integer
+/// before interpreting it. Also handles a future wrapper returning Ok(count).
+/// See ndk 0.9's write and status-only from_result conversion:
+/// https://docs.rs/ndk/0.9.0/src/ndk/audio.rs.html#1400-1409
+/// https://docs.rs/ndk/0.9.0/src/ndk/audio.rs.html#485-489
+#[cfg(any(target_os = "android", test))]
+fn checked_aaudio_write_count(
+    result: Result<u32, i32>,
+    requested: i32,
+) -> Result<usize, AudioSinkError> {
+    let result = match result {
+        Ok(frames) => i32::try_from(frames)
+            .map_err(|_| AudioSinkError::Write("AAudio frame count overflow".into()))?,
+        Err(code) => code,
+    };
+    if result < 0 {
+        return Err(AudioSinkError::Write(format!(
+            "AAudio write failed with code {result}"
+        )));
+    }
+    if result > requested {
+        return Err(AudioSinkError::Write(
+            "AAudio returned more frames than requested".into(),
+        ));
+    }
+    Ok(result as usize)
+}
+
 // -------------------------------------------------------------------------------------------------
 // AAudio Native Sink for Android / Meta Quest 3 (target_os = "android")
 // -------------------------------------------------------------------------------------------------
@@ -507,13 +536,11 @@ impl AudioSink for AAudioSink {
 
         let num_frames = (samples.len() / channels) as i32;
         // Non-blocking write with 0 timeout to prevent audio glitches from blocking render thread
-        let frames_written = unsafe {
-            stream
-                .write(samples.as_ptr() as *const std::ffi::c_void, num_frames, 0)
-                .map_err(|e| AudioSinkError::Write(format!("AAudio write failed: {e}")))?
-        };
+        let result =
+            unsafe { stream.write(samples.as_ptr() as *const std::ffi::c_void, num_frames, 0) };
+        let frames_written = checked_aaudio_write_count(result.map_err(i32::from), num_frames)?;
 
-        Ok((frames_written as usize) * channels)
+        Ok(frames_written * channels)
     }
 
     fn latency_frames(&self) -> Result<u32, AudioSinkError> {
@@ -553,6 +580,28 @@ pub fn create_default_audio_sink() -> Box<dyn AudioSink> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn aaudio_write_counts_accept_full_partial_and_zero_writes() {
+        assert_eq!(checked_aaudio_write_count(Err(480), 480).unwrap(), 480);
+        assert_eq!(checked_aaudio_write_count(Err(120), 480).unwrap(), 120);
+        assert_eq!(checked_aaudio_write_count(Ok(0), 480).unwrap(), 0);
+        assert_eq!(checked_aaudio_write_count(Ok(480), 480).unwrap(), 480);
+        assert_eq!(checked_aaudio_write_count(Ok(120), 480).unwrap(), 120);
+        assert_eq!(checked_aaudio_write_count(Err(0), 480).unwrap(), 0);
+        assert!(checked_aaudio_write_count(Ok(u32::MAX), 480).is_err());
+    }
+
+    #[test]
+    fn aaudio_write_counts_preserve_errors_and_reject_impossible_counts() {
+        for code in [-899, -898, -1] {
+            assert!(matches!(
+                checked_aaudio_write_count(Err(code), 480),
+                Err(AudioSinkError::Write(_))
+            ));
+        }
+        assert!(checked_aaudio_write_count(Err(481), 480).is_err());
+    }
 
     #[test]
     fn test_mock_audio_sink_lifecycle() {
