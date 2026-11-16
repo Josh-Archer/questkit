@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/Josh-Archer/questkit/compare/xr-video-v0.1.3...xr-video-v0.1.4) - 2026-11-16
+
+### Fixed
+
+- *(xr-video)* service audio recovery independently of writes ([#30](https://github.com/Josh-Archer/questkit/pull/30))
+
 ## [0.1.3](https://github.com/Josh-Archer/questkit/compare/xr-video-v0.1.2...xr-video-v0.1.3) - 2026-11-16
 
 ### Fixed
