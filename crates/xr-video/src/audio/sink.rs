@@ -86,6 +86,14 @@ pub trait AudioSink {
     /// Returns the number of samples actually written.
     fn write_samples(&mut self, samples: &[f32]) -> Result<usize, AudioSinkError>;
 
+    /// Services nonblocking playback recovery, even when no samples are accepted.
+    ///
+    /// Call on every running playout step, before queue-based throttling. `now` must
+    /// use the same monotonic clock as playout. The default is a no-op for simple sinks.
+    fn maintain(&mut self, _now: std::time::Instant) -> Result<(), AudioSinkError> {
+        Ok(())
+    }
+
     /// Current hardware output latency estimate in frames.
     fn latency_frames(&self) -> Result<u32, AudioSinkError>;
 
@@ -121,6 +129,10 @@ impl<S: ?Sized + AudioSink> AudioSink for Box<S> {
 
     fn write_samples(&mut self, samples: &[f32]) -> Result<usize, AudioSinkError> {
         (**self).write_samples(samples)
+    }
+
+    fn maintain(&mut self, now: std::time::Instant) -> Result<(), AudioSinkError> {
+        (**self).maintain(now)
     }
 
     fn latency_frames(&self) -> Result<u32, AudioSinkError> {
@@ -511,22 +523,10 @@ impl AudioSink for AAudioSink {
             self.peak = 0.0;
             self.peak_logged = Some(now);
         }
+        self.maintain(now)?;
         let stream = self.stream.as_ref().ok_or(AudioSinkError::NotReady)?;
         if !self.is_playing {
             return Err(AudioSinkError::NotReady);
-        }
-        let read = stream.frames_read();
-        let queued = (stream.frames_written() - read).clamp(0, i64::from(u32::MAX)) as u32;
-        if let Some(size) = self.sizer.update(
-            std::time::Instant::now(),
-            read,
-            queued,
-            stream.buffer_size_in_frames().max(0) as u32,
-            stream.buffer_capacity_in_frames().max(0) as u32,
-        ) {
-            if let Err(e) = stream.set_buffer_size_in_frames(size as i32) {
-                tracing::debug!("AAudio setBufferSizeInFrames({size}) failed: {e}");
-            }
         }
 
         let channels = self.config.channels as usize;
@@ -541,6 +541,28 @@ impl AudioSink for AAudioSink {
         let frames_written = checked_aaudio_write_count(result.map_err(i32::from), num_frames)?;
 
         Ok(frames_written * channels)
+    }
+
+    fn maintain(&mut self, now: std::time::Instant) -> Result<(), AudioSinkError> {
+        if !self.is_playing {
+            return Ok(());
+        }
+        let stream = self.stream.as_ref().ok_or(AudioSinkError::NotReady)?;
+        let read = stream.frames_read();
+        let queued = (stream.frames_written() - read).clamp(0, i64::from(u32::MAX)) as u32;
+        if let Some(size) = self.sizer.update(
+            now,
+            read,
+            queued,
+            stream.buffer_size_in_frames().max(0) as u32,
+            stream.buffer_capacity_in_frames().max(0) as u32,
+        ) {
+            if let Err(e) = stream.set_buffer_size_in_frames(size as i32) {
+                tracing::debug!("AAudio setBufferSizeInFrames({size}) failed: {e}");
+            }
+        }
+
+        Ok(())
     }
 
     fn latency_frames(&self) -> Result<u32, AudioSinkError> {
